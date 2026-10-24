@@ -49,8 +49,14 @@ Response
 }
 ```
 
-Errors: `422` bad input; `503` when photo analysis is unavailable (no `ANTHROPIC_API_KEY` on the server)
-and no macros were sent. The app then asks the user for macros.
+`mae_mg_dl` is the tier's cross-validated error on people the model never saw (sensor 18.5, labs 20.8,
+basic 22.7). `meal` also carries `source` (`"photo"` or `"user"`) and, for photos, `items`
+(`[{ name, portion, carbs }]`). `model_version` is the training date, e.g. `"2026-10-24.1"`.
+
+Errors (always JSON `{ "detail": ... }`): `422` bad input, a photo with no food, or CGM covering less than
+the 5 hours before the meal; `415` photo is not JPEG/PNG/GIF/WebP; `503` when photo analysis is unavailable
+(no `NAVIGATOR_TOOLKIT_API_KEY` or `ANTHROPIC_API_KEY` on the server, key rejected, or the vision model
+failed) and no macros were sent. The app then asks the user for macros.
 
 ## POST /api/risk
 
@@ -70,4 +76,10 @@ Response
 }
 ```
 
-`422` when there are fewer than 3 days of data.
+`422` when there are fewer than 3 days of data. The estimate uses the most recent 4 days.
+
+## GET /api/health
+
+```jsonc
+{ "ok": true, "model_version": "2026-10-24.1", "vision_provider": "navigator" | "anthropic" | null, "vision_model": "gemma-4-31b-it" }
+```
