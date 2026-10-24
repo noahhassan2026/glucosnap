@@ -10,8 +10,6 @@ RUN npm run build
 
 FROM python:3.12-slim
 WORKDIR /app
-# CPU-only torch keeps the image around 1 GB instead of several.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 COPY api/requirements.txt api/requirements.txt
 RUN pip install --no-cache-dir -r api/requirements.txt
 COPY api api
