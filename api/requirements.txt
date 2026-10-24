@@ -1,0 +1,11 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pydantic>=2.7
+numpy>=1.26
+pandas>=2.2
+scikit-learn==1.9.1     # pinned: models/*.pkl were saved with these versions
+lightgbm==4.7.0
+torch>=2.3
+anthropic>=2.3
+openai>=1.40
