@@ -34,9 +34,17 @@ export interface PredictContext {
   walk_after_meal_min?: number;
 }
 
+export interface FoodItem {
+  name: string;
+  portion: string;
+  carbs: number;
+}
+
 export interface Meal extends Required<Macros> {
   label: string;
   confidence: number;
+  source?: "photo" | "user";
+  items?: FoodItem[]; // photo estimates only
 }
 
 export type Tier = "sensor" | "labs" | "basic";
@@ -84,4 +92,11 @@ export interface RiskResponse {
   status_probs: Record<RiskStatus, number>;
   homa_ir_estimate?: number;
   days_of_data: number;
+}
+
+export interface HealthResponse {
+  ok: boolean;
+  model_version: string;
+  vision_provider: "navigator" | "anthropic" | null;
+  vision_model: string | null;
 }
