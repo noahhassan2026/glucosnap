@@ -11,7 +11,7 @@ import json, os, pickle, sys
 from datetime import datetime
 from typing import List, Literal, Optional
 
-import numpy as np, pandas as pd, torch
+import numpy as np, pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,7 +20,6 @@ from pydantic import BaseModel, Field, ValidationError
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "glucosnap_ml"))
 from features import CURVE_TIERS, MEAL_TYPES, HISTORY_KEYS, pre_meal_stats, cgm_summary, history_features  # noqa: E402
-from model import DualStreamEncoder                                         # noqa: E402
 import vision                                                                # noqa: E402
 
 MODEL_DIR = os.environ.get("GLUCOSNAP_MODELS", os.path.join(HERE, "models"))
@@ -29,9 +28,11 @@ CURVES = pickle.load(open(os.path.join(MODEL_DIR, "curve_models.pkl"), "rb"))
 HEALTH = pickle.load(open(os.path.join(MODEL_DIR, "health_models.pkl"), "rb"))
 ENC = PCA = None
 if META["use_encoder"]:
-    ENC = DualStreamEncoder()
-    ENC.load_state_dict(torch.load(os.path.join(MODEL_DIR, "encoder.pt"), map_location="cpu"))
-    ENC.eval()
+    # the CGM encoder runs through onnxruntime (models/encoder.onnx from glucosnap_ml/export_onnx.py), no PyTorch needed
+    import onnxruntime as ort
+    opts = ort.SessionOptions()
+    opts.intra_op_num_threads = opts.inter_op_num_threads = 1
+    ENC = ort.InferenceSession(os.path.join(MODEL_DIR, "encoder.onnx"), opts, providers=["CPUExecutionProvider"])
     PCA = pickle.load(open(os.path.join(MODEL_DIR, "pca.pkl"), "rb"))
 MINUTES = [0] + META["horizons"]
 
@@ -137,8 +138,7 @@ def predict_curve(ctx: Context, macros: Macros, walk: float, window, hist=None):
     if tier == "sensor":
         x = np.array([[f[k] for k in CURVE_TIERS["sensor"]]], dtype=float)
         if ENC is not None:
-            with torch.no_grad():
-                e = ENC.embed(torch.tensor(window[None, :])).numpy()
+            e = ENC.run(None, {"cgm": window[None, :].astype(np.float32)})[0]
             x = np.hstack([x, PCA.transform(e)])
     else:
         x = np.array([[f[k] for k in b["features"]]], dtype=float)

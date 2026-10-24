@@ -1,0 +1,5 @@
+# Training and ONNX export (the server itself only needs requirements.txt)
+-r requirements.txt
+torch>=2.3
+onnx>=1.16
+onnxscript>=0.2
