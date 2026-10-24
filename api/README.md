@@ -28,18 +28,21 @@ answers 503 for photos and the app asks the user for macros; everything else sti
 
 | Piece | Model | Inputs | Subject-held-out accuracy |
 |---|---|---|---|
-| 2h curve, CGM user ("sensor" tier) | LightGBM per 15-min horizon | meal macros, time, activity, last 6h CGM (stats + encoder embedding), previous 3 days of CGM summary, age/sex/BMI | MAE 18.5 mg/dL, peak error 19.5 |
-| 2h curve, labs tier | LightGBM | meal, A1c / fasting glucose, age/sex/BMI, optional finger-stick | MAE 20.8, peak 22.5 |
-| 2h curve, basic tier | LightGBM | meal, age/sex/BMI, optional finger-stick | MAE 22.7, peak 24.6 |
-| CGM encoder | GlucoFM-style dual-stream (trend + deviation) transformer, masked latent prediction, 170k params | 6h of CGM at 5 min | used inside the sensor tier (19.0 → 18.5); served as ONNX |
-| HbA1c | Ridge on 4-day CGM summary | mean, SD, CV, p90, time above 140/180 | MAE 0.42 points |
-| Status | Logistic regression, ADA cut-offs 5.7 / 6.5 | same | 58% (3 classes, majority 36%) |
+| 2h curve, CGM user ("sensor" tier) | LightGBM per 15-min horizon | meal macros, time, activity, last 6h CGM (stats + encoder embedding), previous 3 days of CGM summary, age/sex/BMI | MAE 17.8 mg/dL, peak error 19.1 |
+| 2h curve, labs tier | LightGBM | meal, A1c / fasting glucose, age/sex/BMI, optional finger-stick | MAE 19.9, peak 21.1 |
+| 2h curve, basic tier | LightGBM | meal, age/sex/BMI, optional finger-stick | MAE 21.5, peak 23.2 |
+| CGM encoder | GlucoFM-style dual-stream (trend + deviation) transformer, masked latent prediction, 170k params | 6h of CGM at 5 min | used inside the sensor tier (17.9 → 17.8); served as ONNX |
+| HbA1c | Ridge on 4-day CGM summary | mean, SD, CV, p90, time above 140/180 | MAE 0.36 points |
+| Status | Logistic regression, ADA cut-offs 5.7 / 6.5 | same | 59% (3 classes) |
 
 The server runs the encoder with onnxruntime, so it needs no PyTorch and uses about 300 MB of RAM with
 every model loaded. PyTorch is only for training.
 
-The population-average curve scores 24.2 mg/dL, so a CGM user's recent history is what moves the needle.
-Trained on 1,628 to 1,673 meals from 45 adults. More carbs never lowers the predicted curve, and more fiber or
+Errors are averaged over held-out people from both datasets. Adding BIG IDEAs lowered the error on
+held-out CGMacros people too (sensor 18.36 → 18.27, labs 20.85 → 20.68, basic 22.73 → 22.53) and on
+held-out BIG IDEAs people, whose Dexcom sensor CGMacros lacks, by about 2 mg/dL (18.7 → 16.6).
+The population-average curve scores 24.2 mg/dL on CGMacros, so a CGM user's recent history is what moves the needle.
+Trained on 2,130 to 2,213 meals from 59 adults (CGMacros plus BIG IDEAs; 61 people for the health models). More carbs never lowers the predicted curve, and more fiber or
 walking never raises it (monotone constraints), so suggestions stay physiologically sane. Walking
 shows a small effect in this data (activity is a wrist-tracker average), so the walk suggestion only
 appears when the model predicts a real drop.
@@ -52,15 +55,17 @@ unzip CGMacros_dateshifted365.zip -d raw                         # raw/CGMacros
 python api/glucosnap_ml/build_meals.py raw/CGMacros meals.csv     # 1,676 meals with 2h curves
 pip install -r api/requirements-train.txt                          # adds PyTorch + ONNX export
 python api/glucosnap_ml/train_final.py raw/CGMacros api/models    # ~30 min on 4 CPU cores
+BIGIDEAS=raw/bigideas python api/glucosnap_ml/train_final.py raw/CGMacros api/models   # what models/ holds: + BIG IDEAs (download in bigideas.py)
 REUSE_ENCODER=1 python api/glucosnap_ml/train_final.py raw/CGMacros api/models   # refit only the curve/health models
 python api/glucosnap_ml/export_onnx.py api/models                 # encoder.pt -> encoder.onnx for the server
 ```
 
-`experiment.py` (encoder vs. plain features) and `experiment2.py` (3-day history) are the comparisons
-behind the design; their results are the JSON files next to them. physionet.org may be blocked on some
+`experiment.py` (encoder vs. plain features), `experiment2.py` (3-day history) and `experiment3.py`
+(adding BIG IDEAs) are the comparisons behind the design; their results are the JSON files next to them. physionet.org may be blocked on some
 networks; the S3 mirror above is the same release.
 
 ## Data and license
 
-CGMacros v1.0.0 (PhysioNet, released January 2025), CC BY-NC-SA 4.0. The trained files in `models/` are
-derived from it, so they are for non-commercial use and carry the same license. Not medical advice.
+CGMacros v1.0.0 (PhysioNet, released January 2025), CC BY-NC-SA 4.0, and BIG IDEAs Lab Glycemic Variability
+and Wearable Device Data v1.1.2 (PhysioNet), ODC-By 1.0. The trained files in `models/` are derived from
+CGMacros, so they are for non-commercial use and carry its license. Not medical advice.

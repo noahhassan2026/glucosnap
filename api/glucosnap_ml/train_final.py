@@ -1,6 +1,7 @@
 """Train the production models on all of CGMacros and write them to models/.
 
-  python src/train_final.py raw/CGMacros models
+  python api/glucosnap_ml/train_final.py raw/CGMacros api/models
+  BIGIDEAS=raw/bigideas python api/glucosnap_ml/train_final.py raw/CGMacros api/models   # + BIG IDEAs (bigideas.py)
 
 Outputs: encoder.pt, pca.pkl, curve_models.pkl (one bundle per tier), health_models.pkl, meta.json
 """
@@ -25,6 +26,10 @@ P = dict(n_estimators=300, learning_rate=0.03, num_leaves=15, min_child_samples=
 
 S = load_series(root)
 bio = load_bio(root)
+BIG = os.environ.get("BIGIDEAS")
+if BIG:
+    import bigideas
+    S.update(bigideas.load_series(BIG))
 
 # ---- 1. encoder ------------------------------------------------------------------------
 t0 = time.time()
@@ -39,6 +44,8 @@ else:
 
 # ---- 2. meal table with 5-minute pre-meal windows (same inputs the API receives) ---------
 m = pd.read_csv(os.environ.get("MEALS", "meals.csv"), parse_dates=["time"])   # from build_meals.py
+if BIG:
+    m = pd.concat([m, bigideas.build_meals(BIG, S)], ignore_index=True)
 m = m[m.carbs < 300].reset_index(drop=True)
 m["sex"] = (m.sex == "M").astype(int)
 m["mt"] = m.meal_type.map({"breakfast": 0, "lunch": 1, "dinner": 2}).fillna(3)
@@ -107,7 +114,11 @@ rows = {}
 for s, ser in S.items():
     v = ser.dropna().values[: 12 * 24 * 4]
     rows[s] = cgm_summary(v)
-D = pd.DataFrame(rows).T.join(bio[["A1c PDL (Lab)"]]).dropna()
+a1c_lab = bio["A1c PDL (Lab)"]
+if BIG:
+    demo = pd.read_csv(os.path.join(BIG, "Demographics.csv"), encoding="utf-8-sig")
+    a1c_lab = pd.concat([a1c_lab, pd.Series(demo.HbA1c.values, index=demo.ID.values + bigideas.OFFSET)])
+D = pd.DataFrame(rows).T.join(a1c_lab.rename("A1c PDL (Lab)")).dropna()
 Xh, a1c = D[SUMK].values, D["A1c PDL (Lab)"].values
 status = np.digitize(a1c, [5.7, 6.5])         # 0 normal, 1 prediabetes, 2 type 2 range (ADA cut-offs)
 a1c_model = make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-2, 3, 20)))
@@ -120,9 +131,10 @@ health = dict(features=SUMK, a1c=a1c_model.fit(Xh, a1c), status=stat_model.fit(X
 print(f"health: HbA1c CV MAE {health['a1c_cv_mae']}, status accuracy {health['status_cv_acc']} (n={len(D)})", flush=True)
 pickle.dump(health, open(os.path.join(out, "health_models.pkl"), "wb"))
 
-json.dump(dict(version="2026-10-24.1", horizons=HORIZONS, use_encoder=bool(USE_ENC), encoder_epochs=EPOCHS,
+json.dump(dict(version=os.environ.get("VERSION", "2026-10-24.2"), horizons=HORIZONS, use_encoder=bool(USE_ENC), encoder_epochs=EPOCHS,
                curve={k: {kk: v for kk, v in b.items() if kk != "models"} for k, b in curves.items()},
                health={k: v for k, v in health.items() if k not in ("a1c", "status")},
-               data="CGMacros v1.0.0 (PhysioNet, CC BY-NC-SA 4.0), 45 adults"),
+               data="CGMacros v1.0.0 (PhysioNet, CC BY-NC-SA 4.0), 45 adults"
+                    + (" + BIG IDEAs v1.1.2 (PhysioNet, ODC-By 1.0), 16 adults" if BIG else "")),
           open(os.path.join(out, "meta.json"), "w"), indent=1)
 print("saved to", out)
