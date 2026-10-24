@@ -80,9 +80,10 @@ export async function mockPredict(photo: File | null, ctx: PredictContext): Prom
   } else {
     throw new ApiError(422, "Send a photo or macros.");
   }
-  const last = ctx.cgm_last_6h?.at(-1)?.mg_dl;
+  const cgm = ctx.cgm_recent ?? ctx.cgm_last_6h;
+  const last = cgm?.at(-1)?.mg_dl;
   const pre = last ?? ctx.pre_glucose_mg_dl;
-  const tier = ctx.cgm_last_6h?.length ? "sensor" : ctx.profile?.a1c != null ? "labs" : "basic";
+  const tier = cgm?.length ? "sensor" : ctx.profile?.a1c != null ? "labs" : "basic";
   const walk = ctx.walk_after_meal_min ?? 0;
   const delta = curveFor(meal, walk, pre);
   const mae = MAE[tier];

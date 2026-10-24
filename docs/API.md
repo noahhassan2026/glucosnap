@@ -19,7 +19,8 @@ unreachable the app falls back to a built-in mock with the same shape (`src/api/
   "pre_glucose_mg_dl": 98,            // optional
   "profile": { "age": 30, "sex": "F", "bmi": 24, "a1c": 5.4, "fasting_glu": 90 }, // optional, all fields optional
   "macros": { "carbs": 60, "protein": 20, "fat": 15, "fiber": 5, "calories": 455 }, // optional, overrides the photo estimate
-  "cgm_last_6h": [{ "t": "2026-10-24T10:00:00Z", "mg_dl": 101 }],                 // optional
+  "cgm_recent": [{ "t": "2026-10-24T10:00:00Z", "mg_dl": 101 }],                  // optional, up to 3 days ending at the meal, any interval
+  "cgm_last_6h": [ ... ],             // optional, older form of cgm_recent; ignored when cgm_recent is sent
   "walk_after_meal_min": 15           // optional, default 0
 }
 ```
