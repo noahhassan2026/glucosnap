@@ -2,8 +2,7 @@
 
 The repo builds into one Docker container: the web app is compiled and served by the FastAPI
 model server (`deploy/serve.py`), so the whole app lives at a single URL with no CORS setup.
-It needs about 1 GB of memory (PyTorch plus the models), so free tiers capped at 512 MB
-(Render free, for example) are too small.
+It uses about 300 MB of memory, so it fits free tiers with 512 MB.
 
 ## Settings (environment variables)
 
@@ -17,39 +16,31 @@ It needs about 1 GB of memory (PyTorch plus the models), so free tiers capped at
 Without a vision key the app still works: photo scans return 503 and the app asks for macros.
 Keys go in the host's secrets settings, never in the repo.
 
-## Option A: Railway (simplest)
+## Render (free)
 
-1. Sign in at railway.com with GitHub and choose **New project → Deploy from GitHub repo →
-   noahhassan2026/glucosnap**. Railway finds the `Dockerfile` and builds it.
-2. Open the service's **Variables** tab and add `NAVIGATOR_TOOLKIT_API_KEY`.
-3. In **Settings → Networking**, click **Generate domain**. That URL is the live app.
-4. Every push to `main` redeploys.
+`render.yaml` describes the service, so Render sets it up from the repo.
 
-New accounts get trial credit, enough for a hackathon; after that the Hobby plan is about $5/month.
+1. Sign up at render.com with GitHub and stay on the free plan.
+2. Click **New → Blueprint**, connect GitHub if asked, and pick **noahhassan2026/glucosnap**.
+3. Render shows the `glucosnap` web service and asks for `NAVIGATOR_TOOLKIT_API_KEY`. Paste the key
+   and click **Apply**. The first build takes about 5 to 10 minutes.
+4. The app is at the `https://glucosnap-….onrender.com` link on the service page. Every push to
+   `main` redeploys.
 
-## Option B: Hugging Face Spaces (free, 16 GB)
+Free services get 512 MB and a tenth of a CPU, and sleep after 15 minutes without visitors; the next
+visit wakes them in about a minute.
+Open the link a few minutes before a demo.
 
-A GitHub Action (`.github/workflows/deploy-hf.yml`) uploads `main` to the Space on every push and
-adds the Space settings (`sdk: docker`, `app_port: 7860`) to the Space's README.
-
-1. Create a Space at huggingface.co/new-space: SDK **Docker**, template **Blank**, hardware
-   **CPU basic (free)**, visibility **Public** (so judges can open it without logging in).
-2. In the Space, open **Settings → Variables and secrets → New secret**: name
-   `NAVIGATOR_TOOLKIT_API_KEY`, value your key.
-3. Create a token at huggingface.co/settings/tokens: type **Write**.
-4. In GitHub, open the repo's **Settings → Secrets and variables → Actions**:
-   - **Secrets** tab → **New repository secret**: `HF_TOKEN` = the token.
-   - **Variables** tab → **New repository variable**: `HF_SPACE` = `<your-username>/<space-name>`.
-5. Run the workflow: **Actions → Deploy to Hugging Face → Run workflow** (later pushes to `main`
-   deploy on their own). The Space then builds for a few minutes; its **Logs** tab shows progress.
-6. The app is at `https://<your-username>-<space-name>.hf.space`.
-
-Free Spaces sleep after about 48 hours without visitors and wake on the next visit (about a minute).
-
-## Running the production build locally
+## Your own computer (for a live demo)
 
 ```bash
 npm ci && npm run build
 pip install -r api/requirements.txt
-uvicorn deploy.serve:app --port 8000   # http://localhost:8000
+echo "NAVIGATOR_TOOLKIT_API_KEY=your-key" > api/.env   # git-ignored
+uvicorn deploy.serve:app --port 8000 --env-file api/.env
 ```
+
+Then share it with a free Cloudflare quick tunnel (install `cloudflared` first):
+`cloudflared tunnel --url http://localhost:8000` prints a public `https://….trycloudflare.com` link
+that works while both commands run.
+
