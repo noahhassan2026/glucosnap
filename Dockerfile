@@ -10,12 +10,18 @@ RUN npm run build
 
 FROM python:3.12-slim
 WORKDIR /app
+# LightGBM needs the OpenMP runtime, which the slim image leaves out.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
 COPY api/requirements.txt api/requirements.txt
 RUN pip install --no-cache-dir -r api/requirements.txt
 COPY api api
 COPY deploy deploy
 COPY --from=web /src/dist dist
-# Hugging Face Spaces expects 7860; Render and others set PORT.
+# Run as an unprivileged user; the app only reads its files.
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user
+# Hosts such as Render set PORT; 7860 is the local default.
 ENV PORT=7860
 EXPOSE 7860
 CMD ["sh", "-c", "uvicorn deploy.serve:app --host 0.0.0.0 --port ${PORT}"]

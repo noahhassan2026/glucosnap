@@ -2,8 +2,7 @@
 
 The repo builds into one Docker container: the web app is compiled and served by the FastAPI
 model server (`deploy/serve.py`), so the whole app lives at a single URL with no CORS setup.
-It needs about 1 GB of memory (PyTorch plus the models), so free tiers capped at 512 MB
-(Render free, for example) are too small.
+It uses about 300 MB of memory, so it fits free tiers with 512 MB.
 
 ## Settings (environment variables)
 
@@ -17,32 +16,52 @@ It needs about 1 GB of memory (PyTorch plus the models), so free tiers capped at
 Without a vision key the app still works: photo scans return 503 and the app asks for macros.
 Keys go in the host's secrets settings, never in the repo.
 
-## Option A: Railway (simplest)
+## Azure Container Apps
 
-1. Sign in at railway.com with GitHub and choose **New project → Deploy from GitHub repo →
-   noahhassan2026/glucosnap**. Railway finds the `Dockerfile` and builds it.
-2. Open the service's **Variables** tab and add `NAVIGATOR_TOOLKIT_API_KEY`.
-3. In **Settings → Networking**, click **Generate domain**. That URL is the live app.
-4. Every push to `main` redeploys.
+Everything runs from Azure Cloud Shell (portal.azure.com → `>_` → Bash), so nothing needs installing.
+`az containerapp up --source .` builds the Dockerfile in Azure and creates the app, a Container Apps
+environment and a small container registry (Basic, about $5/month, covered by Azure for Students
+credit). The app scales to zero when idle; the first visit after that takes a little while.
 
-New accounts get trial credit, enough for a hackathon; after that the Hobby plan is about $5/month.
+```bash
+az extension add --name containerapp --upgrade -y
+az provider register -n Microsoft.App --wait
+az provider register -n Microsoft.OperationalInsights --wait
+git clone https://github.com/noahhassan2026/glucosnap && cd glucosnap
+az containerapp up -n glucosnap -g glucosnap-rg -l eastus --source . --ingress external --target-port 7860
 
-## Option B: Hugging Face Spaces (free, 16 GB)
+read -s KEY   # paste the NaviGator key; it is not echoed
+az containerapp secret set -n glucosnap -g glucosnap-rg --secrets navigator-key="$KEY"
+az containerapp update -n glucosnap -g glucosnap-rg --set-env-vars NAVIGATOR_TOOLKIT_API_KEY=secretref:navigator-key
+```
 
-1. Create a Space at huggingface.co/new-space with SDK **Docker** (blank template).
-2. In the Space's **Settings → Variables and secrets**, add `NAVIGATOR_TOOLKIT_API_KEY` as a secret.
-3. Push this repo to the Space (use an HF access token with write scope as the password):
-   ```bash
-   git remote add space https://huggingface.co/spaces/<you>/glucosnap
-   git push space main
-   ```
-   The Space's README needs `sdk: docker` and `app_port: 7860` in its YAML header; if the push is
-   rejected for that, add the header to the Space's README in the web editor.
+To ship a new version of `main`: `cd glucosnap && git pull && az containerapp up -n glucosnap -g glucosnap-rg --source .`
 
-## Running the production build locally
+## Render (free)
+
+`render.yaml` describes the service, so Render sets it up from the repo.
+
+1. Sign up at render.com with GitHub and stay on the free plan.
+2. Click **New → Blueprint**, connect GitHub if asked, and pick **noahhassan2026/glucosnap**.
+3. Render shows the `glucosnap` web service and asks for `NAVIGATOR_TOOLKIT_API_KEY`. Paste the key
+   and click **Apply**. The first build takes about 5 to 10 minutes.
+4. The app is at the `https://glucosnap-….onrender.com` link on the service page. Every push to
+   `main` redeploys.
+
+Free services get 512 MB and a tenth of a CPU, and sleep after 15 minutes without visitors; the next
+visit wakes them in about a minute.
+Open the link a few minutes before a demo.
+
+## Your own computer (for a live demo)
 
 ```bash
 npm ci && npm run build
 pip install -r api/requirements.txt
-uvicorn deploy.serve:app --port 8000   # http://localhost:8000
+echo "NAVIGATOR_TOOLKIT_API_KEY=your-key" > api/.env   # git-ignored
+uvicorn deploy.serve:app --port 8000 --env-file api/.env
 ```
+
+Then share it with a free Cloudflare quick tunnel (install `cloudflared` first):
+`cloudflared tunnel --url http://localhost:8000` prints a public `https://….trycloudflare.com` link
+that works while both commands run.
+
