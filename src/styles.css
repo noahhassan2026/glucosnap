@@ -223,3 +223,5 @@ input.name:hover { border-color: var(--line); }
 .choice b { font-family: var(--display); font-size: 1.05rem; }
 .choice-art { width: 100%; background: var(--sky); border-radius: 12px; }
 .choice-art svg { width: 100%; height: auto; display: block; }
+.items-found { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 0.85rem; }
+.items-found li { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--line); padding-top: 4px; }

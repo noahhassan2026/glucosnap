@@ -10,7 +10,12 @@ const MAE = { sensor: 15.6, labs: 20.1, basic: 24.0 };
 // The mock can't see the photo, so every photo is read as the hackathon demo meal:
 // a typical plate of spaghetti and meatballs with marinara.
 const DEMO_MEAL: Omit<Meal, "confidence"> = {
-  label: "Spaghetti and meatballs", calories: 750, carbs: 85, protein: 34, fat: 28, fiber: 7,
+  label: "Spaghetti and meatballs", calories: 750, carbs: 85, protein: 34, fat: 28, fiber: 7, source: "photo",
+  items: [
+    { name: "Spaghetti", portion: "2 cups", carbs: 74 },
+    { name: "Beef meatballs", portion: "3 medium", carbs: 4 },
+    { name: "Marinara sauce", portion: "1/2 cup", carbs: 7 },
+  ],
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -63,7 +68,7 @@ export async function mockPredict(photo: File | null, ctx: PredictContext): Prom
   await sleep(900);
   let meal: Meal;
   if (ctx.macros) {
-    meal = { label: "Your meal", ...ctx.macros, calories: kcal(ctx.macros), confidence: 1 };
+    meal = { label: "Your meal", ...ctx.macros, calories: kcal(ctx.macros), confidence: 1, source: "user" };
   } else if (photo) {
     meal = { ...DEMO_MEAL, confidence: 0.92 };
   } else {

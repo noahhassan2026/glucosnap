@@ -23,7 +23,7 @@ npm run build
 
 The app calls the model server at `/api` (proxied to `localhost:8000` in dev, or set `VITE_API_URL`).
 With no server running it falls back to a built-in demo model, so the UI always works. Set
-`VITE_USE_MOCK=1` to force the demo model. The API contract is in [docs/API.md](docs/API.md).
+`VITE_USE_MOCK=1` to force the demo model. The API contract is in [docs/API.md](docs/API.md); deployment steps are in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 The model server lives in [api/](api/README.md): `cd api && pip install -r requirements.txt && uvicorn app:app --port 8000 --env-file .env`.
 

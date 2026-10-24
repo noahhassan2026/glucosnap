@@ -26,6 +26,25 @@ export interface LoggedMeal {
   thumb?: string;
 }
 
+// Phone photos are often 3-5 MB, and some formats (like HEIC) aren't accepted by the
+// vision model. Re-encode to a JPEG at most 1280 px on the long side when the browser
+// can decode the image; otherwise send the original.
+async function prepareUpload(file: File): Promise<File> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.type === "image/jpeg" && file.size < 1.5e6) return file;
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * scale);
+    c.height = Math.round(bmp.height * scale);
+    c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.85));
+    return blob ? new File([blob], "meal.jpg", { type: "image/jpeg" }) : file;
+  } catch {
+    return file;
+  }
+}
+
 async function thumbnail(file: File): Promise<string | undefined> {
   try {
     const bmp = await createImageBitmap(file);
@@ -95,7 +114,7 @@ export function SnapView(props: {
     setBusy(true);
     setError(null);
     try {
-      const r = await predict(m ? null : photo, ctx);
+      const r = await predict(m || !photo ? null : await prepareUpload(photo), ctx);
       setPrevious(opts.log ? null : result);
       setResult(r.data);
       setSource(r.source);
@@ -190,6 +209,13 @@ export function SnapView(props: {
             </div>
             <button className="ghost small-btn" onClick={() => setEditing(true)}>Fix macros</button>
           </div>
+          {!macros && meal.items && meal.items.length > 0 && (
+            <ul className="items-found">
+              {meal.items.map((it) => (
+                <li key={it.name}><span>{it.name} <small className="muted">· {it.portion}</small></span><span className="muted">{Math.round(it.carbs)}g carbs</span></li>
+              ))}
+            </ul>
+          )}
           <div className="stats">
             <div className="stat">
               <span>Peak</span>
