@@ -29,7 +29,8 @@ export interface PredictContext {
   pre_glucose_mg_dl?: number;
   profile?: Profile;
   macros?: Macros;
-  cgm_last_6h?: CgmPoint[];
+  cgm_last_6h?: CgmPoint[]; // superseded by cgm_recent, still accepted
+  cgm_recent?: CgmPoint[]; // up to 3 days ending at the meal
   walk_after_meal_min?: number;
 }
 

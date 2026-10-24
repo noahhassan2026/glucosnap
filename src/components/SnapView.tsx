@@ -61,6 +61,8 @@ export function SnapView(props: {
   const [macros, setMacros] = useState<Macros | null>(null); // user-entered or corrected
   const [editing, setEditing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Sensor data only describes this meal if it runs up to now (an old upload doesn't).
+  const sensorLive = props.cgm.length > 0 && Date.now() - Date.parse(props.cgm.at(-1)!.t) < 30 * 6e4;
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -80,14 +82,14 @@ export function SnapView(props: {
     const m = opts.macros === undefined ? macros : opts.macros;
     const w = opts.walk ?? walk;
     const now = new Date();
-    const recent = props.cgm.length ? lastHours(props.cgm) : [];
+    const recent = sensorLive ? lastHours(props.cgm, 72) : [];
     const ctx: PredictContext = {
       meal_type: mealType,
       hour: now.getHours() + now.getMinutes() / 60,
       ...(pre && !recent.length ? { pre_glucose_mg_dl: Number(pre) } : {}),
       ...(Object.keys(props.profile).length ? { profile: props.profile } : {}),
       ...(m ? { macros: m } : {}),
-      ...(recent.length ? { cgm_last_6h: recent } : {}),
+      ...(recent.length ? { cgm_recent: recent } : {}),
       walk_after_meal_min: w,
     };
     setBusy(true);
@@ -152,8 +154,8 @@ export function SnapView(props: {
           </label>
           <label className="field">
             <span>Glucose now (optional)</span>
-            <input inputMode="numeric" placeholder={props.cgm.length ? "from sensor" : "mg/dL"} value={pre}
-              disabled={!!props.cgm.length} onChange={(e) => setPre(e.target.value.replace(/[^0-9]/g, ""))} />
+            <input inputMode="numeric" placeholder={sensorLive ? "from sensor" : "mg/dL"} value={pre}
+              disabled={sensorLive} onChange={(e) => setPre(e.target.value.replace(/[^0-9]/g, ""))} />
           </label>
         </div>
         <div className="row">
