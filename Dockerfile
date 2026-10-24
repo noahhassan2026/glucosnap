@@ -17,6 +17,10 @@ RUN pip install --no-cache-dir -r api/requirements.txt
 COPY api api
 COPY deploy deploy
 COPY --from=web /src/dist dist
+# Hugging Face Spaces runs the container as user 1000; the app only reads its files.
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user
 # Hugging Face Spaces expects 7860; Render and others set PORT.
 ENV PORT=7860
 EXPOSE 7860

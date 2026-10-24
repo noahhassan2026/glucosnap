@@ -29,15 +29,22 @@ New accounts get trial credit, enough for a hackathon; after that the Hobby plan
 
 ## Option B: Hugging Face Spaces (free, 16 GB)
 
-1. Create a Space at huggingface.co/new-space with SDK **Docker** (blank template).
-2. In the Space's **Settings → Variables and secrets**, add `NAVIGATOR_TOOLKIT_API_KEY` as a secret.
-3. Push this repo to the Space (use an HF access token with write scope as the password):
-   ```bash
-   git remote add space https://huggingface.co/spaces/<you>/glucosnap
-   git push space main
-   ```
-   The Space's README needs `sdk: docker` and `app_port: 7860` in its YAML header; if the push is
-   rejected for that, add the header to the Space's README in the web editor.
+A GitHub Action (`.github/workflows/deploy-hf.yml`) uploads `main` to the Space on every push and
+adds the Space settings (`sdk: docker`, `app_port: 7860`) to the Space's README.
+
+1. Create a Space at huggingface.co/new-space: SDK **Docker**, template **Blank**, hardware
+   **CPU basic (free)**, visibility **Public** (so judges can open it without logging in).
+2. In the Space, open **Settings → Variables and secrets → New secret**: name
+   `NAVIGATOR_TOOLKIT_API_KEY`, value your key.
+3. Create a token at huggingface.co/settings/tokens: type **Write**.
+4. In GitHub, open the repo's **Settings → Secrets and variables → Actions**:
+   - **Secrets** tab → **New repository secret**: `HF_TOKEN` = the token.
+   - **Variables** tab → **New repository variable**: `HF_SPACE` = `<your-username>/<space-name>`.
+5. Run the workflow: **Actions → Deploy to Hugging Face → Run workflow** (later pushes to `main`
+   deploy on their own). The Space then builds for a few minutes; its **Logs** tab shows progress.
+6. The app is at `https://<your-username>-<space-name>.hf.space`.
+
+Free Spaces sleep after about 48 hours without visitors and wake on the next visit (about a minute).
 
 ## Running the production build locally
 
