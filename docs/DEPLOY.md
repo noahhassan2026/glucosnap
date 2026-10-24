@@ -16,6 +16,27 @@ It uses about 300 MB of memory, so it fits free tiers with 512 MB.
 Without a vision key the app still works: photo scans return 503 and the app asks for macros.
 Keys go in the host's secrets settings, never in the repo.
 
+## Azure Container Apps
+
+Everything runs from Azure Cloud Shell (portal.azure.com → `>_` → Bash), so nothing needs installing.
+`az containerapp up --source .` builds the Dockerfile in Azure and creates the app, a Container Apps
+environment and a small container registry (Basic, about $5/month, covered by Azure for Students
+credit). The app scales to zero when idle; the first visit after that takes a little while.
+
+```bash
+az extension add --name containerapp --upgrade -y
+az provider register -n Microsoft.App --wait
+az provider register -n Microsoft.OperationalInsights --wait
+git clone https://github.com/noahhassan2026/glucosnap && cd glucosnap
+az containerapp up -n glucosnap -g glucosnap-rg -l eastus --source . --ingress external --target-port 7860
+
+read -s KEY   # paste the NaviGator key; it is not echoed
+az containerapp secret set -n glucosnap -g glucosnap-rg --secrets navigator-key="$KEY"
+az containerapp update -n glucosnap -g glucosnap-rg --set-env-vars NAVIGATOR_TOOLKIT_API_KEY=secretref:navigator-key
+```
+
+To ship a new version of `main`: `cd glucosnap && git pull && az containerapp up -n glucosnap -g glucosnap-rg --source .`
+
 ## Render (free)
 
 `render.yaml` describes the service, so Render sets it up from the repo.
