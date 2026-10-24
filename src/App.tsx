@@ -7,20 +7,24 @@ import { HealthView } from "./components/HealthView";
 import { QuestView } from "./components/QuestView";
 import { SnapView, type LoggedMeal } from "./components/SnapView";
 import { Pet } from "./components/Pet";
+import { ShopView, Token } from "./components/ShopView";
+import { EvolveDialog } from "./components/EvolveDialog";
 
-type Tab = "snap" | "health" | "quest";
+type Tab = "snap" | "health" | "quest" | "shop";
 
 function describe(events: QuestEvent[], s: QuestState) {
   const evo = events.find((e) => e.kind === "evolve");
-  if (evo) return `${s.petName} evolved into a ${evo.stage}!`;
+  if (evo) return `${s.petName} evolved into ${evo.stage}! +30 tokens`;
+  if (events.some((e) => e.kind === "evolve-ready")) return `${s.petName} is ready to evolve! Pick a path.`;
   const lvl = events.filter((e) => e.kind === "level").at(-1);
-  if (lvl) return `Level up! You're level ${lvl.level}.`;
+  if (lvl) return `Level up! You're level ${lvl.level}. +20 tokens`;
   if (events.some((e) => e.kind === "shield-earned")) return "7-day streak! You earned a streak shield.";
   if (events.some((e) => e.kind === "shield-used")) return "A streak shield saved your streak.";
   if (events.some((e) => e.kind === "streak-reset")) return "Streak reset. Your level and pet are safe.";
   const xp = events.filter((e) => e.kind === "xp").reduce((a, e) => a + (e.kind === "xp" ? e.gained : 0), 0);
   const mult = events.find((e) => e.kind === "xp");
-  if (xp) return `+${xp} XP` + (mult && mult.kind === "xp" && mult.mult > 1 ? ` (streak ×${mult.mult})` : "");
+  const tokens = events.reduce((a, e) => a + (e.kind === "xp" ? e.tokens : 0), 0);
+  if (xp) return `+${xp} XP · +${tokens} tokens` + (mult && mult.kind === "xp" && mult.mult > 1 ? ` (streak ×${mult.mult})` : "");
   if (events.some((e) => e.kind === "capped")) return "Daily XP limit reached. Great work today.";
   return null;
 }
@@ -29,6 +33,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("snap");
   const [toast, setToast] = useState<string | null>(null);
   const [petAnim, setPetAnim] = useState("");
+  const [evolveOpen, setEvolveOpen] = useState(false);
   const toastTimer = useRef<number>(undefined);
   const [profile, setProfile] = useStored<Profile>("glucosnap-profile", () => {
     try { return JSON.parse(localStorage.getItem("glucosnap-profile") ?? "{}"); } catch { return {}; }
@@ -45,6 +50,7 @@ export default function App() {
   const quest = useQuest((events, s) => {
     const msg = describe(events, s);
     if (msg) show(msg);
+    if (events.some((e) => e.kind === "evolve-ready")) setEvolveOpen(true);
     setPetAnim("");
     requestAnimationFrame(() => setPetAnim(events.some((e) => e.kind === "evolve") ? "evolve" : "bounce"));
   });
@@ -60,14 +66,16 @@ export default function App() {
           <h1>GlucoSnap</h1>
         </div>
         <button className="mini-quest" onClick={() => setTab("quest")} aria-label={`Level ${s.level}, ${s.streak}-day streak. Open quests`}>
-          <Pet stage={s.evo} className={"mini-pet " + petAnim} />
+          <Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={"mini-pet " + petAnim} />
           <span>Lv {s.level}</span>
           <span className="mini-streak">🔥 {s.streak}</span>
+          <Token n={s.tokens} />
+          {s.evoReady && <span className="dot" aria-label="Pet ready to evolve" />}
         </button>
       </header>
 
       <nav className="tabs" role="tablist" aria-label="Sections">
-        {([["snap", "Snap"], ["health", "Health"], ["quest", "Quest"]] as [Tab, string][]).map(([id, label]) => (
+        {([["snap", "Snap"], ["health", "Health"], ["quest", "Quest"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{label}</button>
         ))}
       </nav>
@@ -99,9 +107,22 @@ export default function App() {
             onNextDay={quest.nextDay}
             onReset={() => { quest.reset(s.playerName); show("Quest restarted"); }}
             onRename={quest.rename}
+            onShop={() => setTab("shop")}
+            onEvolve={() => setEvolveOpen(true)}
+          />
+        </div>
+        <div hidden={tab !== "shop"}>
+          <ShopView
+            s={s}
+            onBuy={(id) => { const err = quest.buy(id); show(err ?? "Bought and equipped"); }}
+            onToggle={quest.toggleEquip}
+            onLook={quest.setLook}
           />
         </div>
       </main>
+      {evolveOpen && s.evoReady && (
+        <EvolveDialog s={s} onPick={(p) => { quest.chooseEvolution(p); setEvolveOpen(false); }} onLater={() => setEvolveOpen(false)} />
+      )}
       <div className={"toast" + (toast ? " show" : "")} role="status" aria-live="polite">{toast}</div>
     </div>
   );
