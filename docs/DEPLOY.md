@@ -27,15 +27,18 @@ credit). The app scales to zero when idle; the first visit after that takes a li
 az extension add --name containerapp --upgrade -y
 az provider register -n Microsoft.App --wait
 az provider register -n Microsoft.OperationalInsights --wait
+az provider register -n Microsoft.ContainerRegistry --wait
+# Student and trial subscriptions only allow some regions; pick one from this list:
+az policy assignment list --query "[].parameters.listOfAllowedLocations.value" -o tsv
 git clone https://github.com/noahhassan2026/glucosnap && cd glucosnap
-az containerapp up -n glucosnap -g glucosnap-rg -l eastus --source . --ingress external --target-port 7860
+az containerapp up -n glucosnap -g glucosnap-rg -l REGION --source . --ingress external --target-port 7860
 
 read -s KEY   # paste the NaviGator key; it is not echoed
 az containerapp secret set -n glucosnap -g glucosnap-rg --secrets navigator-key="$KEY"
 az containerapp update -n glucosnap -g glucosnap-rg --set-env-vars NAVIGATOR_TOOLKIT_API_KEY=secretref:navigator-key
 ```
 
-To ship a new version of `main`: `cd glucosnap && git pull && az containerapp up -n glucosnap -g glucosnap-rg --source .`
+To ship a new version of `main`: `cd glucosnap && git pull && az containerapp up -n glucosnap -g glucosnap-rg -l REGION --source .`
 
 ## Render (free)
 
