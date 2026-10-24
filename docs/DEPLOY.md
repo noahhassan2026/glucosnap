@@ -18,24 +18,35 @@ Keys go in the host's secrets settings, never in the repo.
 
 ## Azure Container Apps
 
-Everything runs from Azure Cloud Shell (portal.azure.com → `>_` → Bash), so nothing needs installing.
-`az containerapp up --source .` builds the Dockerfile in Azure and creates the app, a Container Apps
-environment and a small container registry (Basic, about $5/month, covered by Azure for Students
-credit). The app scales to zero when idle; the first visit after that takes a little while.
+GitHub Actions (`.github/workflows/container.yml`) builds the container on every push to `main` and
+publishes it as `ghcr.io/noahhassan2026/glucosnap` (public, like the repo). Azure only pulls that
+image, so no Azure build service or container registry is needed; student subscriptions block
+ACR Tasks anyway. Container Apps scales to zero when idle, so the first visit after a quiet spell
+takes a little while.
+
+Run in Azure Cloud Shell (portal.azure.com → `>_` → Bash):
 
 ```bash
 az extension add --name containerapp --upgrade -y
 az provider register -n Microsoft.App --wait
 az provider register -n Microsoft.OperationalInsights --wait
-git clone https://github.com/noahhassan2026/glucosnap && cd glucosnap
-az containerapp up -n glucosnap -g glucosnap-rg -l eastus --source . --ingress external --target-port 7860
+# Student and trial subscriptions only allow some regions; pick one from this list:
+az policy assignment list --query "[].parameters.listOfAllowedLocations.value" -o tsv
+az group create -n glucosnap-rg -l REGION
+az containerapp env create -n glucosnap-env -g glucosnap-rg -l REGION
+az containerapp create -n glucosnap -g glucosnap-rg --environment glucosnap-env \
+  --image ghcr.io/noahhassan2026/glucosnap:latest --ingress external --target-port 7860 \
+  --cpu 0.5 --memory 1.0Gi --min-replicas 0 --max-replicas 1 \
+  --query properties.configuration.ingress.fqdn -o tsv
 
 read -s KEY   # paste the NaviGator key; it is not echoed
 az containerapp secret set -n glucosnap -g glucosnap-rg --secrets navigator-key="$KEY"
 az containerapp update -n glucosnap -g glucosnap-rg --set-env-vars NAVIGATOR_TOOLKIT_API_KEY=secretref:navigator-key
 ```
 
-To ship a new version of `main`: `cd glucosnap && git pull && az containerapp up -n glucosnap -g glucosnap-rg --source .`
+To ship a new version after the Container workflow finishes on `main`, point the app at that
+commit's image (a new tag makes Azure pull it):
+`az containerapp update -n glucosnap -g glucosnap-rg --image ghcr.io/noahhassan2026/glucosnap:<commit sha>`
 
 ## Render (free)
 
