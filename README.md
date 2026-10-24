@@ -1,0 +1,32 @@
+# GlucoSnap
+
+Snap a photo of a meal and see your predicted 2-hour glucose curve, ways to flatten it, and a health
+snapshot (estimated HbA1c and diabetes risk band) from a few days of CGM data. Built for GatorHack
+"Fresh off the frontier", based on Google's GlucoFM (2026), the TU Munich meal-photo glucose paper
+(2026) and the open CGMacros dataset.
+
+**GlucoSnap Quest** turns healthy habits into a game: an upgradable character, a pet that evolves
+(Egg → Hatchling → Sprite → Guardian → Legendary) with level and streak, streak XP multipliers
+(×1.25 at 3 days, ×1.5 at 7, ×2 at 14), streak shields, a daily XP cap, and a leaderboard with no health
+data. XP never rewards eating less.
+
+## Run
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # quest rule tests
+npm run build
+```
+
+The app calls the model server at `/api` (proxied to `localhost:8000` in dev, or set `VITE_API_URL`).
+With no server running it falls back to a built-in demo model, so the UI always works. Set
+`VITE_USE_MOCK=1` to force the demo model. The API contract is in [docs/API.md](docs/API.md).
+
+## Layout
+
+- `src/api/`: API types, client with demo fallback, mock model
+- `src/game/`: Quest rules (pure functions + tests) and the React hook that persists them
+- `src/components/`: Snap, Health and Quest screens, glucose chart, character and pet art
+
+Not medical advice. Prediction errors are typically 15 to 24 mg/dL.
