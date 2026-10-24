@@ -3,7 +3,7 @@
 Snap a photo of a meal and see your predicted 2-hour glucose curve, ways to flatten it, and a health
 snapshot (estimated HbA1c and diabetes risk band) from a few days of CGM data. Built for GatorHack
 "Fresh off the frontier", based on Google's GlucoFM (2026), the TU Munich meal-photo glucose paper
-(2026) and the open CGMacros dataset.
+(2026) and the open CGMacros and BIG IDEAs datasets.
 
 **GlucoSnap Quest** turns healthy habits into a game: a character you style (skin, hair, colors), a pet
 that evolves (Egg → Hatchling → Sprite → Guardian → Legendary) with level and streak, streak XP

@@ -1,0 +1,32 @@
+{
+ "sensor": {
+  "A_cgmacros_only": {
+   "cgmacros": 18.36,
+   "bigideas": 18.7
+  },
+  "B_plus_bigideas": {
+   "cgmacros": 18.27,
+   "bigideas": 16.59
+  }
+ },
+ "labs": {
+  "A_cgmacros_only": {
+   "cgmacros": 20.85,
+   "bigideas": 19.49
+  },
+  "B_plus_bigideas": {
+   "cgmacros": 20.68,
+   "bigideas": 17.47
+  }
+ },
+ "basic": {
+  "A_cgmacros_only": {
+   "cgmacros": 22.73,
+   "bigideas": 19.41
+  },
+  "B_plus_bigideas": {
+   "cgmacros": 22.53,
+   "bigideas": 17.5
+  }
+ }
+}

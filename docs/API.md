@@ -49,8 +49,8 @@ Response
 }
 ```
 
-`mae_mg_dl` is the tier's cross-validated error on people the model never saw (sensor 18.5, labs 20.8,
-basic 22.7). `meal` also carries `source` (`"photo"` or `"user"`) and, for photos, `items`
+`mae_mg_dl` is the tier's cross-validated error on people the model never saw (sensor 17.8, labs 19.9,
+basic 21.5). `meal` also carries `source` (`"photo"` or `"user"`) and, for photos, `items`
 (`[{ name, portion, carbs }]`). `model_version` is the training date, e.g. `"2026-10-24.1"`.
 
 Errors (always JSON `{ "detail": ... }`): `422` bad input, a photo with no food, or CGM covering less than
