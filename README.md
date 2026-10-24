@@ -5,10 +5,12 @@ snapshot (estimated HbA1c and diabetes risk band) from a few days of CGM data. B
 "Fresh off the frontier", based on Google's GlucoFM (2026), the TU Munich meal-photo glucose paper
 (2026) and the open CGMacros dataset.
 
-**GlucoSnap Quest** turns healthy habits into a game: an upgradable character, a pet that evolves
-(Egg → Hatchling → Sprite → Guardian → Legendary) with level and streak, streak XP multipliers
-(×1.25 at 3 days, ×1.5 at 7, ×2 at 14), streak shields, a daily XP cap, and a leaderboard with no health
-data. XP never rewards eating less.
+**GlucoSnap Quest** turns healthy habits into a game: a character you style (skin, hair, colors), a pet
+that evolves (Egg → Hatchling → Sprite → Guardian → Legendary) with level and streak, streak XP
+multipliers (×1.25 at 3 days, ×1.5 at 7, ×2 at 14), streak shields, a daily XP cap, and a leaderboard
+with no health data. Quests also pay tokens for an item shop (hats, glasses, outfits, capes, shoes, and
+pet hats, collars and auras). At Sprite the pet takes an element (Leaf, Ember, Tide) and at Guardian a
+form (Wings, Horns), giving six different Legendaries. XP and tokens never reward eating less.
 
 ## Run
 
@@ -26,7 +28,7 @@ With no server running it falls back to a built-in demo model, so the UI always 
 ## Layout
 
 - `src/api/`: API types, client with demo fallback, mock model
-- `src/game/`: Quest rules (pure functions + tests) and the React hook that persists them
-- `src/components/`: Snap, Health and Quest screens, glucose chart, character and pet art
+- `src/game/`: Quest rules, shop catalog and pet evolution tree (pure functions + tests), and the React hook that persists them
+- `src/components/`: Snap, Health, Quest and Shop screens, evolution choice, glucose chart, character and pet art
 
 Not medical advice. Prediction errors are typically 15 to 24 mg/dL.

@@ -1,6 +1,9 @@
 // GlucoSnap Quest rules. Pure functions over a plain state object so they are easy to test.
 // Guardrails: XP rewards logging, balance and movement, never eating less; base XP is
 // capped per day; a missed day can cost a streak, never a level or a pet stage.
+// Tokens follow XP (so the same cap and guardrails apply) and only buy cosmetics.
+import { choiceFor, speciesName, type Element, type Form, type PetPath } from "./pets";
+import { DEFAULT_LOOK, itemById, type Look, type Slot } from "./shop";
 
 export const TIERS = [
   { days: 0, mult: 1, label: "Start" },
@@ -10,14 +13,6 @@ export const TIERS = [
 ];
 
 export const RANKS: [number, string][] = [[1, "Rookie"], [4, "Explorer"], [8, "Pathfinder"], [12, "Champion"]];
-
-export const GEAR = [
-  { lvl: 2, id: "band", name: "Headband" },
-  { lvl: 4, id: "shoes", name: "Running shoes" },
-  { lvl: 6, id: "pack", name: "Backpack" },
-  { lvl: 9, id: "jacket", name: "Trail jacket" },
-  { lvl: 12, id: "cape", name: "Champion cape" },
-] as const;
 
 export const EVO = [
   { name: "Egg", lvl: 1, streak: 0 },
@@ -29,6 +24,10 @@ export const EVO = [
 
 export const DAILY_CAP = 80;
 export const MAX_SHIELDS = 2;
+export const START_TOKENS = 50;
+export const LEVEL_BONUS = 20;
+export const EVOLVE_BONUS = 30;
+export const tokensFor = (xp: number) => Math.round(xp / 5);
 
 export interface Task {
   id: string;
@@ -55,13 +54,20 @@ export interface QuestState {
   done: Record<string, boolean>;
   extraTasks: Task[]; // turned from the latest prediction's suggestions
   lastWeekly: string | null;
+  tokens: number;
+  owned: string[];
+  equipped: Partial<Record<Slot, string>>;
+  look: Look;
+  petPath: PetPath;
+  evoReady: boolean; // qualifies for the next stage but needs the player's choice
 }
 
 export type QuestEvent =
-  | { kind: "xp"; gained: number; mult: number }
+  | { kind: "xp"; gained: number; mult: number; tokens: number }
   | { kind: "capped" }
   | { kind: "level"; level: number }
   | { kind: "evolve"; stage: string }
+  | { kind: "evolve-ready"; choice: "element" | "form" }
   | { kind: "shield-earned" }
   | { kind: "shield-used" }
   | { kind: "streak-reset" };
@@ -69,7 +75,6 @@ export type QuestEvent =
 export const xpToNext = (level: number) => 40 + 20 * (level - 1);
 export const multiplier = (streak: number) => TIERS.filter((t) => streak >= t.days).at(-1)!.mult;
 export const rankFor = (level: number) => RANKS.filter((r) => level >= r[0]).at(-1)![1];
-export const hasGear = (level: number, id: string) => GEAR.some((g) => g.id === id && level >= g.lvl);
 
 export function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -84,7 +89,17 @@ export function fresh(date: string, playerName = "You"): QuestState {
     playerName, petName: "Glimmer", date,
     level: 1, xp: 0, streak: 0, best: 0, shields: 0, evo: 0,
     todayBase: 0, activeToday: false, mealsToday: 0, done: {}, extraTasks: [], lastWeekly: null,
+    tokens: START_TOKENS, owned: [], equipped: {}, look: { ...DEFAULT_LOOK }, petPath: {}, evoReady: false,
   };
+}
+
+// Fill fields added after a player's state was first saved.
+export function migrate(saved: QuestState): QuestState {
+  const s = { ...fresh(saved.date), ...saved };
+  s.petPath = { ...saved.petPath };
+  if (s.evo >= 2 && !s.petPath.element) s.petPath.element = "leaf";
+  if (s.evo >= 3 && !s.petPath.form) s.petPath.form = "wing";
+  return s;
 }
 
 export function baseTasks(s: QuestState): Task[] {
@@ -106,10 +121,51 @@ export function allTasks(s: QuestState) {
 function evolve(s: QuestState, events: QuestEvent[]) {
   let next = EVO[s.evo + 1];
   while (next && s.level >= next.lvl && s.streak >= next.streak) {
+    const choice = choiceFor(s.evo + 1, s.petPath);
+    if (choice) {
+      if (!s.evoReady) events.push({ kind: "evolve-ready", choice });
+      s.evoReady = true;
+      return;
+    }
     s.evo += 1;
-    events.push({ kind: "evolve", stage: next.name });
+    s.tokens += EVOLVE_BONUS;
+    events.push({ kind: "evolve", stage: speciesName(s.evo, s.petPath) });
     next = EVO[s.evo + 1];
   }
+}
+
+// The player picks an element (at Sprite) or a form (at Guardian); the pet then evolves.
+export function chooseEvolution(prev: QuestState, pick: Element | Form): { state: QuestState; events: QuestEvent[] } {
+  const choice = choiceFor(prev.evo + 1, prev.petPath);
+  if (!prev.evoReady || !choice) return { state: prev, events: [] };
+  const isElement = pick === "leaf" || pick === "ember" || pick === "tide";
+  if ((choice === "element") !== isElement) return { state: prev, events: [] };
+  const s: QuestState = { ...prev, evoReady: false, petPath: { ...prev.petPath, [choice]: pick } };
+  const events: QuestEvent[] = [];
+  evolve(s, events);
+  return { state: s, events };
+}
+
+export type ShopResult = { state: QuestState; error?: string };
+
+export function buy(prev: QuestState, id: string): ShopResult {
+  const item = itemById(id);
+  if (!item) return { state: prev, error: "That item isn't in the shop." };
+  if (prev.owned.includes(id)) return { state: prev, error: "You already own it." };
+  if (item.minLevel && prev.level < item.minLevel) return { state: prev, error: `Unlocks at level ${item.minLevel}.` };
+  if (prev.tokens < item.price) return { state: prev, error: `You need ${item.price - prev.tokens} more tokens.` };
+  return {
+    state: { ...prev, tokens: prev.tokens - item.price, owned: [...prev.owned, id], equipped: { ...prev.equipped, [item.slot]: id } },
+  };
+}
+
+export function toggleEquip(prev: QuestState, id: string): QuestState {
+  const item = itemById(id);
+  if (!item || !prev.owned.includes(id)) return prev;
+  const equipped = { ...prev.equipped };
+  if (equipped[item.slot] === id) delete equipped[item.slot];
+  else equipped[item.slot] = id;
+  return { ...prev, equipped };
 }
 
 export function complete(prev: QuestState, taskId: string): { state: QuestState; events: QuestEvent[] } {
@@ -131,12 +187,15 @@ export function complete(prev: QuestState, taskId: string): { state: QuestState;
   s.todayBase += base;
   const m = multiplier(s.streak);
   const gained = Math.round(base * m);
+  const tokens = tokensFor(gained);
   if (base === 0) events.push({ kind: "capped" });
-  else events.push({ kind: "xp", gained, mult: m });
+  else events.push({ kind: "xp", gained, mult: m, tokens });
   s.xp += gained;
+  s.tokens += tokens;
   while (s.xp >= xpToNext(s.level)) {
     s.xp -= xpToNext(s.level);
     s.level += 1;
+    s.tokens += LEVEL_BONUS;
     events.push({ kind: "level", level: s.level });
   }
   evolve(s, events);
