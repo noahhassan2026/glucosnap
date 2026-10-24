@@ -6,6 +6,6 @@ numpy>=1.26
 pandas>=2.2
 scikit-learn==1.9.1     # pinned: models/*.pkl were saved with these versions
 lightgbm==4.7.0
-torch>=2.3
+onnxruntime>=1.18     # runs models/encoder.onnx; PyTorch is only needed to train (requirements-train.txt)
 anthropic>=2.3
 openai>=1.40

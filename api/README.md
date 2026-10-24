@@ -31,9 +31,12 @@ answers 503 for photos and the app asks the user for macros; everything else sti
 | 2h curve, CGM user ("sensor" tier) | LightGBM per 15-min horizon | meal macros, time, activity, last 6h CGM (stats + encoder embedding), previous 3 days of CGM summary, age/sex/BMI | MAE 18.5 mg/dL, peak error 19.5 |
 | 2h curve, labs tier | LightGBM | meal, A1c / fasting glucose, age/sex/BMI, optional finger-stick | MAE 20.8, peak 22.5 |
 | 2h curve, basic tier | LightGBM | meal, age/sex/BMI, optional finger-stick | MAE 22.7, peak 24.6 |
-| CGM encoder | GlucoFM-style dual-stream (trend + deviation) transformer, masked latent prediction, 170k params | 6h of CGM at 5 min | used inside the sensor tier (19.0 → 18.5) |
+| CGM encoder | GlucoFM-style dual-stream (trend + deviation) transformer, masked latent prediction, 170k params | 6h of CGM at 5 min | used inside the sensor tier (19.0 → 18.5); served as ONNX |
 | HbA1c | Ridge on 4-day CGM summary | mean, SD, CV, p90, time above 140/180 | MAE 0.42 points |
 | Status | Logistic regression, ADA cut-offs 5.7 / 6.5 | same | 58% (3 classes, majority 36%) |
+
+The server runs the encoder with onnxruntime, so it needs no PyTorch and uses about 300 MB of RAM with
+every model loaded. PyTorch is only for training.
 
 The population-average curve scores 24.2 mg/dL, so a CGM user's recent history is what moves the needle.
 Trained on 1,628 to 1,673 meals from 45 adults. More carbs never lowers the predicted curve, and more fiber or
@@ -47,8 +50,10 @@ appears when the model predicts a real drop.
 curl -O https://physionet-open.s3.amazonaws.com/cgmacros/1.0.0/CGMacros_dateshifted365.zip
 unzip CGMacros_dateshifted365.zip -d raw                         # raw/CGMacros
 python api/glucosnap_ml/build_meals.py raw/CGMacros meals.csv     # 1,676 meals with 2h curves
+pip install -r api/requirements-train.txt                          # adds PyTorch + ONNX export
 python api/glucosnap_ml/train_final.py raw/CGMacros api/models    # ~30 min on 4 CPU cores
 REUSE_ENCODER=1 python api/glucosnap_ml/train_final.py raw/CGMacros api/models   # refit only the curve/health models
+python api/glucosnap_ml/export_onnx.py api/models                 # encoder.pt -> encoder.onnx for the server
 ```
 
 `experiment.py` (encoder vs. plain features) and `experiment2.py` (3-day history) are the comparisons
