@@ -7,23 +7,13 @@ import { ApiError } from "./errors";
 const MINUTES = [0, 15, 30, 45, 60, 75, 90, 105, 120];
 const MAE = { sensor: 15.6, labs: 20.1, basic: 24.0 };
 
-const SAMPLE_MEALS: Omit<Meal, "confidence">[] = [
-  { label: "Chicken burrito bowl with rice", calories: 720, carbs: 82, protein: 38, fat: 24, fiber: 9 },
-  { label: "Pepperoni pizza, 2 slices", calories: 600, carbs: 68, protein: 24, fat: 26, fiber: 4 },
-  { label: "Oatmeal with banana and honey", calories: 410, carbs: 78, protein: 10, fat: 7, fiber: 8 },
-  { label: "Salmon, quinoa and greens", calories: 560, carbs: 42, protein: 40, fat: 22, fiber: 8 },
-  { label: "Cheeseburger and fries", calories: 980, carbs: 96, protein: 36, fat: 48, fiber: 6 },
-  { label: "Greek yogurt with berries", calories: 240, carbs: 28, protein: 18, fat: 5, fiber: 4 },
-  { label: "Pad thai with shrimp", calories: 760, carbs: 104, protein: 30, fat: 22, fiber: 5 },
-];
+// The mock can't see the photo, so every photo is read as the hackathon demo meal:
+// a typical plate of spaghetti and meatballs with marinara.
+const DEMO_MEAL: Omit<Meal, "confidence"> = {
+  label: "Spaghetti and meatballs", calories: 750, carbs: 85, protein: 34, fat: 28, fiber: 7,
+};
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function hash(s: string) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
-}
 
 function kcal(m: Macros) {
   return m.calories ?? Math.round(4 * m.carbs + 4 * m.protein + 9 * m.fat);
@@ -75,8 +65,7 @@ export async function mockPredict(photo: File | null, ctx: PredictContext): Prom
   if (ctx.macros) {
     meal = { label: "Your meal", ...ctx.macros, calories: kcal(ctx.macros), confidence: 1 };
   } else if (photo) {
-    const pick = SAMPLE_MEALS[hash(photo.name + photo.size) % SAMPLE_MEALS.length];
-    meal = { ...pick, confidence: 0.6 + (hash(photo.name) % 30) / 100 };
+    meal = { ...DEMO_MEAL, confidence: 0.92 };
   } else {
     throw new ApiError(422, "Send a photo or macros.");
   }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { load, save } from "../storage";
-import { complete, fresh, isoDate, logMeal, rollover, type QuestEvent, type QuestState, type Task } from "./quest";
+import { buy, chooseEvolution, complete, fresh, isoDate, logMeal, migrate, rollover, toggleEquip, type QuestEvent, type QuestState, type Task } from "./quest";
+import type { Element, Form } from "./pets";
+import type { Look } from "./shop";
 import type { Suggestion } from "../api/types";
 
 const KEY = "glucosnap-quest";
@@ -15,7 +17,7 @@ export function useQuest(onEvents: (e: QuestEvent[], s: QuestState) => void) {
   const [offset, setOffset] = useState(() => load(OFFSET_KEY, { days: 0 }).days);
   const [state, setState] = useState<QuestState>(() => {
     const d = today(offset);
-    const saved = load<QuestState>(KEY, fresh(d));
+    const saved = migrate(load<QuestState>(KEY, fresh(d)));
     return rollover(saved, d).state;
   });
   const notify = useRef(onEvents);
@@ -65,5 +67,14 @@ export function useQuest(onEvents: (e: QuestEvent[], s: QuestState) => void) {
       setState(fresh(today(0), name));
     },
     rename: (playerName: string, petName: string) => setState((s) => ({ ...s, playerName, petName })),
+    chooseEvolution: (pick: Element | Form) => apply((s) => chooseEvolution(s, pick)),
+    // Returns an error message when the purchase isn't possible.
+    buy: (id: string): string | undefined => {
+      const r = buy(state, id);
+      if (!r.error) setState(r.state);
+      return r.error;
+    },
+    toggleEquip: (id: string) => setState((s) => toggleEquip(s, id)),
+    setLook: (look: Look) => setState((s) => ({ ...s, look })),
   };
 }

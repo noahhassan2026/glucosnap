@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { DAILY_CAP, EVO, GEAR, TIERS, allTasks, multiplier, rankFor, xpToNext, type QuestState } from "../game/quest";
+import { DAILY_CAP, EVO, TIERS, allTasks, multiplier, rankFor, tokensFor, xpToNext, type QuestState } from "../game/quest";
+import { choiceFor, speciesName, type PetPath } from "../game/pets";
+import { Token } from "./ShopView";
 import { Avatar } from "./Avatar";
 import { Pet } from "./Pet";
 
 // Example players. The leaderboard deliberately carries no health data.
-const OTHERS = [
-  { n: "Maya", lvl: 9, streak: 12, evo: 3 },
-  { n: "Jordan", lvl: 7, streak: 21, evo: 2 },
-  { n: "Priya", lvl: 6, streak: 4, evo: 2 },
-  { n: "Alex", lvl: 5, streak: 9, evo: 2 },
-  { n: "Sam", lvl: 3, streak: 2, evo: 1 },
+const OTHERS: { n: string; lvl: number; streak: number; evo: number; path: PetPath }[] = [
+  { n: "Maya", lvl: 9, streak: 12, evo: 3, path: { element: "ember", form: "wing" } },
+  { n: "Jordan", lvl: 7, streak: 21, evo: 2, path: { element: "tide" } },
+  { n: "Priya", lvl: 6, streak: 4, evo: 2, path: { element: "leaf" } },
+  { n: "Alex", lvl: 5, streak: 9, evo: 2, path: { element: "ember" } },
+  { n: "Sam", lvl: 3, streak: 2, evo: 1, path: {} },
 ];
 
 export function QuestView(props: {
@@ -19,20 +21,22 @@ export function QuestView(props: {
   onNextDay: (skip: boolean) => void;
   onReset: () => void;
   onRename: (player: string, pet: string) => void;
+  onShop: () => void;
+  onEvolve: () => void;
 }) {
   const { s } = props;
   const [tab, setTab] = useState<"level" | "streak">("level");
   const m = multiplier(s.streak);
   const cur = TIERS.filter((t) => s.streak >= t.days).at(-1)!;
   const rows = OTHERS.map((o) => ({ ...o, me: false }))
-    .concat({ n: s.playerName || "You", lvl: s.level, streak: s.streak, evo: s.evo, me: true })
+    .concat({ n: s.playerName || "You", lvl: s.level, streak: s.streak, evo: s.evo, path: s.petPath, me: true })
     .sort(tab === "level" ? (a, b) => b.lvl - a.lvl || b.streak - a.streak : (a, b) => b.streak - a.streak || b.lvl - a.lvl);
 
   return (
     <div className="stack">
       <section className="card">
         <div className="hero">
-          <div className="avatar"><Avatar level={s.level} /></div>
+          <div className="avatar"><Avatar look={s.look} equipped={s.equipped} /></div>
           <div className="who">
             <input className="name" aria-label="Your name" value={s.playerName} onChange={(e) => props.onRename(e.target.value, s.petName)} />
             <span className="muted small">{rankFor(s.level)}</span>
@@ -53,31 +57,39 @@ export function QuestView(props: {
             <div key={t.days} className={"tier" + (t === cur ? " on" : "")}><b>×{t.mult}</b><span>{t.label}</span></div>
           ))}
         </div>
-        <div className="gear" aria-label="Character upgrades">
-          {GEAR.map((g) => (
-            <span key={g.id} className={s.level >= g.lvl ? "got" : ""}>{s.level >= g.lvl ? g.name : `${g.name} · Lv ${g.lvl}`}</span>
-          ))}
+        <div className="spread">
+          <span className="pill"><Token n={s.tokens} /> tokens</span>
+          <button onClick={props.onShop}>Customize &amp; shop</button>
         </div>
       </section>
 
       <section className="card">
         <div className="petrow">
-          <div className="petbox"><Pet stage={s.evo} className={props.petAnim} /></div>
+          <div className="petbox"><Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={props.petAnim} /></div>
           <div className="who">
             <input className="name" aria-label="Pet name" value={s.petName} onChange={(e) => props.onRename(s.playerName, e.target.value)} />
-            <span className="muted small">{EVO[s.evo].name}</span>
+            <span className="muted small">{speciesName(s.evo, s.petPath)}{s.evo >= 2 ? ` · ${EVO[s.evo].name}` : ""}</span>
             <ol className="evo">
               {EVO.map((e, i) => (
                 <li key={e.name} className={i <= s.evo ? "got" : i === s.evo + 1 ? "next" : ""}>
                   <span className="mk" />
-                  <span>{e.name}</span>
-                  <span className="req">{i === 0 ? "start" : `Lv ${e.lvl}` + (e.streak ? ` + ${e.streak}-day streak` : "")}</span>
+                  <span>{i <= s.evo ? speciesName(i, s.petPath) : e.name}</span>
+                  <span className="req">
+                    {i === 0 ? "start" : `Lv ${e.lvl}` + (e.streak ? ` + ${e.streak}-day streak` : "")}
+                    {i > s.evo && choiceFor(i, s.petPath) ? ` · choose ${choiceFor(i, s.petPath) === "element" ? "an element" : "a form"}` : ""}
+                  </span>
                 </li>
               ))}
             </ol>
           </div>
         </div>
-        <p className="note">Evolutions need a level and a current streak, so consistency is what unlocks them. Once evolved, a pet never goes back.</p>
+        {s.evoReady && (
+          <div className="ready">
+            <span><b>{s.petName} is ready to evolve.</b> Pick its path.</span>
+            <button onClick={props.onEvolve}>Choose path</button>
+          </div>
+        )}
+        <p className="note">Evolutions need a level and a current streak. At Sprite you pick an element (Leaf, Ember or Tide) and at Guardian a form (Wings or Horns), for six different Legendaries. Once evolved, a pet never goes back.</p>
       </section>
 
       <section className="stack-sm">
@@ -89,7 +101,7 @@ export function QuestView(props: {
               <span className="t">{t.title}</span>
               <span className="why">{t.why}</span>
               <span className="rw">
-                +{Math.round(t.xp * m)} XP
+                +{Math.round(t.xp * m)} XP · <Token n={tokensFor(Math.round(t.xp * m))} />
                 {t.check && <span className="tag">checked by {t.check}</span>}
                 {t.auto && !done && <span className="tag">automatic</span>}
               </span>
@@ -114,7 +126,7 @@ export function QuestView(props: {
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.n + r.me} className={r.me ? "me" : ""}>
-                <td className="pos">{i + 1}</td><td>{r.n}</td><td className="num">{r.lvl}</td><td className="num">{r.streak}d</td><td>{EVO[r.evo].name}</td>
+                <td className="pos">{i + 1}</td><td>{r.n}</td><td className="num">{r.lvl}</td><td className="num">{r.streak}d</td><td>{speciesName(r.evo, r.path)}</td>
               </tr>
             ))}
           </tbody>

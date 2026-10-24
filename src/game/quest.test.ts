@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DAILY_CAP, complete, fresh, logMeal, multiplier, rollover, type QuestState } from "./quest";
+import { DAILY_CAP, EVOLVE_BONUS, START_TOKENS, buy, chooseEvolution, complete, fresh, logMeal, migrate, multiplier, rollover, toggleEquip, type QuestState } from "./quest";
 
 const D1 = "2026-10-24";
 
@@ -12,7 +12,8 @@ describe("quest rules", () => {
     const { state, events } = logMeal(fresh(D1));
     expect(state.streak).toBe(1);
     expect(state.xp).toBe(10);
-    expect(events[0]).toEqual({ kind: "xp", gained: 10, mult: 1 });
+    expect(events[0]).toEqual({ kind: "xp", gained: 10, mult: 1, tokens: 2 });
+    expect(state.tokens).toBe(START_TOKENS + 2);
   });
 
   it("does not award a task twice", () => {
@@ -51,14 +52,47 @@ describe("quest rules", () => {
     expect(r2.state).toMatchObject({ streak: 0, level: 6, evo: 2 });
   });
 
-  it("evolves the pet only when level and streak both qualify", () => {
+  it("asks for an element before evolving into a Sprite, then evolves on the choice", () => {
     let s: QuestState = { ...withExtra(fresh(D1), 10, 1), level: 5, streak: 1, evo: 1 };
     s = complete(s, "t0").state; // streak becomes 2: not enough for Sprite
-    expect(s.evo).toBe(1);
-    s = { ...withExtra(rollover(s, "2026-10-25").state, 10, 1) };
-    const r = complete(s, "t0"); // streak 3
-    expect(r.state.evo).toBe(2);
-    expect(r.events).toContainEqual({ kind: "evolve", stage: "Sprite" });
+    expect(s.evoReady).toBe(false);
+    s = withExtra(rollover(s, "2026-10-25").state, 10, 1);
+    const r = complete(s, "t0"); // streak 3: qualifies, needs a choice
+    expect(r.state).toMatchObject({ evo: 1, evoReady: true });
+    expect(r.events).toContainEqual({ kind: "evolve-ready", choice: "element" });
+    expect(chooseEvolution(r.state, "wing").state).toBe(r.state); // a form is the wrong kind of choice
+    const c = chooseEvolution(r.state, "ember");
+    expect(c.state).toMatchObject({ evo: 2, evoReady: false, petPath: { element: "ember" } });
+    expect(c.state.tokens).toBe(r.state.tokens + EVOLVE_BONUS);
+    expect(c.events).toEqual([{ kind: "evolve", stage: "Emberling" }]);
+  });
+
+  it("names the Legendary from the element and form", () => {
+    let s: QuestState = { ...fresh(D1), level: 14, streak: 14, evo: 2, petPath: { element: "tide" }, evoReady: true };
+    const r = chooseEvolution(s, "horn");
+    expect(r.state.evo).toBe(4);
+    expect(r.events.map((e) => e.kind === "evolve" && e.stage)).toEqual(["Coralhorn", "Abyss Leviathan"]);
+    s = r.state;
+    expect(s.evoReady).toBe(false);
+  });
+
+  it("buys an item only with enough tokens and the required level, and equips it", () => {
+    const s: QuestState = { ...fresh(D1), tokens: 100, level: 3 };
+    expect(buy(s, "crown").error).toMatch(/level 10/);
+    expect(buy({ ...s, tokens: 10 }, "cap").error).toMatch(/20 more/);
+    const r = buy(s, "cap");
+    expect(r.error).toBeUndefined();
+    expect(r.state).toMatchObject({ tokens: 70, owned: ["cap"], equipped: { hat: "cap" } });
+    expect(buy(r.state, "cap").error).toMatch(/already/);
+    expect(toggleEquip(r.state, "cap").equipped.hat).toBeUndefined();
+    expect(toggleEquip(s, "cap")).toBe(s); // not owned
+  });
+
+  it("migrates saved state from before tokens and pet paths", () => {
+    const old = { ...fresh(D1), evo: 3 } as Partial<QuestState>;
+    delete old.tokens; delete old.petPath; delete old.owned;
+    const m = migrate(old as QuestState);
+    expect(m).toMatchObject({ tokens: START_TOKENS, owned: [], petPath: { element: "leaf", form: "wing" } });
   });
 
   it("earns a shield every 7 streak days", () => {
