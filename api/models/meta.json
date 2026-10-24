@@ -1,0 +1,182 @@
+{
+ "version": "2026-10-24.1",
+ "horizons": [
+  15,
+  30,
+  45,
+  60,
+  75,
+  90,
+  105,
+  120
+ ],
+ "use_encoder": true,
+ "encoder_epochs": 25,
+ "curve": {
+  "sensor": {
+   "band_low": [
+    -10.6,
+    -23.3,
+    -31.6,
+    -33.7,
+    -33.1,
+    -30.6,
+    -31.3,
+    -30.7
+   ],
+   "band_high": [
+    10.6,
+    23.9,
+    32.1,
+    35.8,
+    36.5,
+    34.5,
+    34.4,
+    33.2
+   ],
+   "cv_mae": 18.5,
+   "cv_peak_mae": 19.5,
+   "n_meals": 1628,
+   "features": [
+    "calories",
+    "carbs",
+    "protein",
+    "fat",
+    "fiber",
+    "hour",
+    "mt",
+    "pre_base",
+    "pre_slope",
+    "pre_std",
+    "mins_since_prev_meal",
+    "post_mets",
+    "age",
+    "sex",
+    "bmi",
+    "h_mean",
+    "h_sd",
+    "h_cv",
+    "h_p90",
+    "h_tab140",
+    "h_tab180",
+    "h_smooth_range",
+    "enc_pc0",
+    "enc_pc1",
+    "enc_pc2",
+    "enc_pc3",
+    "enc_pc4",
+    "enc_pc5",
+    "enc_pc6",
+    "enc_pc7",
+    "enc_pc8",
+    "enc_pc9",
+    "enc_pc10",
+    "enc_pc11",
+    "enc_pc12",
+    "enc_pc13",
+    "enc_pc14",
+    "enc_pc15"
+   ]
+  },
+  "labs": {
+   "band_low": [
+    -13.5,
+    -23.6,
+    -31.9,
+    -35.3,
+    -34.8,
+    -34.6,
+    -34.2,
+    -35.2
+   ],
+   "band_high": [
+    14.8,
+    29.8,
+    38.0,
+    41.9,
+    42.6,
+    39.1,
+    38.2,
+    37.6
+   ],
+   "cv_mae": 20.8,
+   "cv_peak_mae": 22.5,
+   "n_meals": 3346,
+   "features": [
+    "calories",
+    "carbs",
+    "protein",
+    "fat",
+    "fiber",
+    "hour",
+    "mt",
+    "mins_since_prev_meal",
+    "post_mets",
+    "age",
+    "sex",
+    "bmi",
+    "a1c",
+    "fasting_glu",
+    "insulin",
+    "tg",
+    "hdl",
+    "pre_base"
+   ]
+  },
+  "basic": {
+   "band_low": [
+    -13.5,
+    -26.3,
+    -34.6,
+    -38.6,
+    -39.2,
+    -40.4,
+    -39.4,
+    -39.6
+   ],
+   "band_high": [
+    15.4,
+    30.6,
+    40.7,
+    46.5,
+    43.5,
+    40.7,
+    40.4,
+    38.3
+   ],
+   "cv_mae": 22.7,
+   "cv_peak_mae": 24.6,
+   "n_meals": 3346,
+   "features": [
+    "calories",
+    "carbs",
+    "protein",
+    "fat",
+    "fiber",
+    "hour",
+    "mt",
+    "mins_since_prev_meal",
+    "post_mets",
+    "age",
+    "sex",
+    "bmi",
+    "pre_base"
+   ]
+  }
+ },
+ "health": {
+  "features": [
+   "mean",
+   "sd",
+   "cv",
+   "p90",
+   "tab140",
+   "tab180",
+   "smooth_range"
+  ],
+  "a1c_cv_mae": 0.42,
+  "status_cv_acc": 0.58,
+  "n_people": 45
+ },
+ "data": "CGMacros v1.0.0 (PhysioNet, CC BY-NC-SA 4.0), 45 adults"
+}
