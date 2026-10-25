@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { predict, ApiError, type Source } from "../api/client";
 import { lastHours } from "../api/mock";
-import type { CgmPoint, Macros, MealType, PredictContext, PredictResponse, Profile, Suggestion } from "../api/types";
+import type { CgmPoint, Curve, Macros, MealType, PredictContext, PredictResponse, Profile, Suggestion } from "../api/types";
+import type { Check } from "../history/match";
 import { GlucoseChart } from "./GlucoseChart";
 
 const TIER_TEXT = {
@@ -21,13 +22,15 @@ export interface LoggedMeal {
   at: string;
   label: string;
   carbs: number;
-  protein?: number;
-  fat?: number;
-  fiber?: number;
-  mealType?: MealType;
   peak: number;
   peakMinute: number;
   thumb?: string;
+  // Added with the History tab; meals logged before it only have the fields above.
+  mealType?: MealType;
+  macros?: Macros;
+  curve?: Curve;
+  demo?: boolean;
+  checks?: Check[];
 }
 
 // Phone photos are often 3-5 MB, and some formats (like HEIC) aren't accepted by the
@@ -70,6 +73,7 @@ export function SnapView(props: {
   onLogged: (m: LoggedMeal) => void;
   onAddSuggestion: (s: Suggestion) => void;
   addedSuggestions: string[];
+  onOpenHistory?: () => void;
 }) {
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -127,13 +131,13 @@ export function SnapView(props: {
           at: now.toISOString(),
           label: r.data.meal.label,
           carbs: r.data.meal.carbs,
-          protein: r.data.meal.protein,
-          fat: r.data.meal.fat,
-          fiber: r.data.meal.fiber,
-          mealType,
           peak: r.data.curve.peak_delta_mg_dl,
           peakMinute: r.data.curve.peak_minute,
           thumb: photo ? await thumbnail(photo) : undefined,
+          mealType,
+          macros: { carbs: r.data.meal.carbs, protein: r.data.meal.protein, fat: r.data.meal.fat, fiber: r.data.meal.fiber },
+          curve: r.data.curve,
+          demo: r.source === "demo",
         });
       }
     } catch (e) {
@@ -274,7 +278,10 @@ export function SnapView(props: {
 
       {props.history.length > 0 && (
         <section className="card">
-          <h2>Recent meals</h2>
+          <div className="spread">
+            <h2>Recent meals</h2>
+            {props.onOpenHistory && <button className="ghost small-btn" onClick={props.onOpenHistory}>See history</button>}
+          </div>
           <ul className="history">
             {props.history.slice(0, 6).map((h) => (
               <li key={h.at}>

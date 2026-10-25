@@ -3,6 +3,7 @@ import { load, save } from "../storage";
 import { addTask, buy, chooseEvolution, complete, fresh, isoDate, logMeal, migrate, rollover, toggleEquip, type QuestEvent, type QuestState, type Task } from "./quest";
 import type { Element, Form } from "./pets";
 import type { Look } from "./shop";
+import { finishLesson, finishRiskCheck, type LessonResult } from "./learn";
 import type { Suggestion } from "../api/types";
 
 const KEY = "glucosnap-quest";
@@ -69,6 +70,17 @@ export function useQuest(onEvents: (e: QuestEvent[], s: QuestState) => void) {
       const r = buy(state, id);
       if (!r.error) setState(r.state);
       return r.error;
+    },
+    finishLesson: (id: string, correct: number): LessonResult => {
+      const r = finishLesson(state, id, correct);
+      if (r.state !== state) setState(r.state);
+      return r;
+    },
+    // Returns the tokens paid (only the first check pays).
+    finishRiskCheck: (score: number): number => {
+      const r = finishRiskCheck(state, score, state.date);
+      setState(r.state);
+      return r.tokens;
     },
     toggleEquip: (id: string) => setState((s) => toggleEquip(s, id)),
     setLook: (look: Look) => setState((s) => ({ ...s, look })),

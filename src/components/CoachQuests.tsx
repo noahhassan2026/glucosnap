@@ -41,7 +41,7 @@ export function CoachQuests(props: {
     try {
       const r = await coachQuests({
         meals: props.history.slice(0, 6).map((h) => ({
-          label: h.label, carbs: h.carbs, protein: h.protein, fat: h.fat, fiber: h.fiber, peak: h.peak, meal_type: h.mealType,
+          label: h.label, carbs: h.carbs, protein: h.macros?.protein, fat: h.macros?.fat, fiber: h.macros?.fiber, peak: h.peak, meal_type: h.mealType,
         })),
         ...(Object.keys(props.profile).length ? { profile: props.profile } : {}),
         hour: now.getHours() + now.getMinutes() / 60,

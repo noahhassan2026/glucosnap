@@ -1,4 +1,5 @@
 import { HAIR_COLORS, SHIRTS, SKINS, type Look, type Slot } from "../game/shop";
+import { MonitorShape, ReadingBubble } from "./Monitor";
 
 type Equipped = Partial<Record<Slot, string>>;
 
@@ -41,7 +42,7 @@ function star(cx: number, cy: number, r: number) {
   return `M${pts.join(" L")} Z`;
 }
 
-export function Avatar({ look, equipped, className }: { look: Look; equipped: Equipped; className?: string }) {
+export function Avatar({ look, equipped, className, reading }: { look: Look; equipped: Equipped; className?: string; reading?: number }) {
   const skin = SKINS[look.skin] ?? SKINS[1];
   const hairColor = HAIR_COLORS[look.hairColor] ?? HAIR_COLORS[0];
   const shirt = SHIRTS[look.shirt] ?? SHIRTS[0];
@@ -75,6 +76,7 @@ export function Avatar({ look, equipped, className }: { look: Look; equipped: Eq
       <rect x={64} y={106} width={12} height={22} rx={5} fill="var(--fg)" />
       <rect x={40} y={124} width={18} height={8} rx={4} fill={shoe} />
       <rect x={62} y={124} width={18} height={8} rx={4} fill={shoe} />
+      {e.monitor && <MonitorShape model={e.monitor} look={look} x={look.monitorSide === 1 ? 79 : 41} y={74} k={0.72} />}
       {look.hair === 1 && <path d="M46 40 L46 64 Q42 70 37 66 L38 40 Z M74 40 L74 64 Q78 70 83 66 L82 40 Z" fill={hairColor} />}
       <circle cx={60} cy={40} r={20} fill={skin} />
       <Hair style={look.hair} color={hairColor} />
@@ -114,6 +116,7 @@ export function Avatar({ look, equipped, className }: { look: Look; equipped: Eq
         </>
       )}
       {e.hat === "crown" && <path d="M44 28 L44 12 L52 20 L60 8 L68 20 L76 12 L76 28 Z" fill="var(--sun)" stroke="#b8860b" strokeWidth={1} />}
+      {e.monitor && look.showReading && reading != null && <ReadingBubble value={reading} side={look.monitorSide} />}
     </svg>
   );
 }
