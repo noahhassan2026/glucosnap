@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { HAIR_COLORS, HAIR_STYLES, ITEMS, MONITOR_COLORS, SHIRTS, SKINS, SLOT_NAMES, STICKERS, type Item, type Look, type Slot } from "../game/shop";
+import {
+  EXTRAS, EYES, HAIR_COLORS, HAIR_STYLES, ITEMS, MONITOR_COLORS, MOUTHS, PANTS, PET_PATTERNS, SCENES, SHIRTS, SKINS, SLOT_NAMES, STICKERS,
+  type Item, type Look, type Slot,
+} from "../game/shop";
 import type { QuestState } from "../game/quest";
 import { speciesName } from "../game/pets";
 import { Avatar } from "./Avatar";
@@ -7,7 +10,7 @@ import { Pet } from "./Pet";
 import { MonitorArt } from "./Monitor";
 
 type Section = "style" | "character" | "monitor" | "pet";
-const CHAR_SLOTS: Slot[] = ["hat", "face", "outfit", "back", "shoes"];
+const CHAR_SLOTS: Slot[] = ["hat", "face", "outfit", "back", "hand", "shoes"];
 const PET_SLOTS: Slot[] = ["petHat", "petNeck", "petAura"];
 const SLOTS: Record<Exclude<Section, "style">, Slot[]> = { character: CHAR_SLOTS, monitor: ["monitor"], pet: PET_SLOTS };
 const SAMPLE_READING = 104;
@@ -39,8 +42,8 @@ export function ShopView(props: {
     <div className="stack">
       <section className="card shop-hero">
         <div className="dressing">
-          <div className="avatar"><Avatar look={s.look} equipped={tryOn} reading={props.reading ?? SAMPLE_READING} /></div>
-          <div className="petbox"><Pet stage={s.evo} path={s.petPath} equipped={tryOn} /></div>
+          <div className="avatar"><Avatar look={s.look} equipped={tryOn} reading={props.reading ?? SAMPLE_READING} scene /></div>
+          <div className="petbox"><Pet stage={s.evo} path={s.petPath} equipped={tryOn} pattern={s.look.petPattern} /></div>
         </div>
         <div className="spread">
           <div>
@@ -58,7 +61,9 @@ export function ShopView(props: {
         ))}
       </div>
 
-      {section === "style" && <StyleEditor look={s.look} onLook={props.onLook} />}
+      {section === "style" && <StyleEditor look={s.look} equipped={s.equipped} onLook={props.onLook} />}
+
+      {section === "pet" && <PetStyle s={s} onLook={props.onLook} />}
 
       {section === "monitor" && <MonitorEditor look={s.look} onLook={props.onLook} hasReading={props.reading != null} />}
 
@@ -77,7 +82,7 @@ export function ShopView(props: {
                   <div key={item.id} className={"item" + (on ? " on" : "") + (locked ? " locked" : "")}
                     onMouseEnter={() => setPreview(item)} onMouseLeave={() => setPreview(null)}>
                     <div className="item-art">
-                      {pet ? <Pet stage={Math.max(1, s.evo)} path={s.petPath} equipped={{ [slot]: item.id }} />
+                      {pet ? <Pet stage={Math.max(1, s.evo)} path={s.petPath} equipped={{ [slot]: item.id }} pattern={s.look.petPattern} />
                         : slot === "monitor" ? <MonitorArt model={item.id} look={s.look} />
                         : <Avatar look={s.look} equipped={{ [slot]: item.id }} />}
                     </div>
@@ -104,8 +109,16 @@ export function ShopView(props: {
   );
 }
 
-function StyleEditor({ look, onLook }: { look: Look; onLook: (l: Look) => void }) {
-  const swatches = (key: "skin" | "hairColor" | "shirt", colors: string[], label: string) => (
+// Crops of the 120x140 character drawing used as picture buttons.
+const FACE_VIEW = "38 24 44 34";
+const HEAD_VIEW = "26 -4 68 72";
+
+function pick<T>(list: readonly T[]) {
+  return Math.floor(Math.random() * list.length);
+}
+
+function StyleEditor({ look, equipped, onLook }: { look: Look; equipped: Partial<Record<Slot, string>>; onLook: (l: Look) => void }) {
+  const swatches = (key: "skin" | "hairColor" | "shirt" | "pants", colors: string[], label: string) => (
     <div className="style-row">
       <span className="small"><b>{label}</b></span>
       <div className="swatches" role="radiogroup" aria-label={label}>
@@ -116,21 +129,61 @@ function StyleEditor({ look, onLook }: { look: Look; onLook: (l: Look) => void }
       </div>
     </div>
   );
+  // Picture options: each tile draws the character with that one choice applied.
+  const tiles = (key: "hair" | "eyes" | "mouth" | "extra" | "scene", names: string[], label: string, view: string, scene = false) => (
+    <div className="style-row">
+      <span className="small"><b>{label}</b></span>
+      <div className="opt-grid" role="radiogroup" aria-label={label}>
+        {names.map((n, i) => (
+          <button key={n} role="radio" aria-checked={look[key] === i} className={"opt" + (scene ? " opt-scene" : "")} onClick={() => onLook({ ...look, [key]: i })}>
+            <Avatar look={{ ...look, [key]: i }} equipped={scene ? equipped : {}} view={view} scene={scene} />
+            <span>{n}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+  const surprise = () => onLook({
+    ...look,
+    skin: pick(SKINS), hair: pick(HAIR_STYLES), hairColor: pick(HAIR_COLORS), shirt: pick(SHIRTS), pants: pick(PANTS),
+    eyes: pick(EYES), mouth: pick(MOUTHS), extra: pick(EXTRAS), scene: pick(SCENES),
+  });
   return (
     <section className="card">
-      <h2>Customize your character</h2>
+      <div className="spread">
+        <h2>Style your character</h2>
+        <button className="ghost small-btn" onClick={surprise}>🎲 Surprise me</button>
+      </div>
       {swatches("skin", SKINS, "Skin tone")}
+      {tiles("hair", HAIR_STYLES, "Hair", HEAD_VIEW)}
+      {swatches("hairColor", HAIR_COLORS, "Hair color")}
+      {tiles("eyes", EYES, "Eyes", FACE_VIEW)}
+      {tiles("mouth", MOUTHS, "Mouth", FACE_VIEW)}
+      {tiles("extra", EXTRAS, "Face details", FACE_VIEW)}
+      {swatches("shirt", SHIRTS, "Shirt color")}
+      {swatches("pants", PANTS, "Pants color")}
+      {tiles("scene", SCENES, "Background", "0 0 120 140", true)}
+      <p className="note">Styling is free. Change it whenever you like.</p>
+    </section>
+  );
+}
+
+function PetStyle({ s, onLook }: { s: QuestState; onLook: (l: Look) => void }) {
+  return (
+    <section className="card">
+      <h2>Style {s.petName}</h2>
       <div className="style-row">
-        <span className="small"><b>Hair</b></span>
-        <div className="seg" role="radiogroup" aria-label="Hair style">
-          {HAIR_STYLES.map((h, i) => (
-            <button key={h} role="radio" aria-checked={look.hair === i} onClick={() => onLook({ ...look, hair: i })}>{h}</button>
+        <span className="small"><b>Coat pattern</b></span>
+        <div className="opt-grid" role="radiogroup" aria-label="Coat pattern">
+          {PET_PATTERNS.map((n, i) => (
+            <button key={n} role="radio" aria-checked={s.look.petPattern === i} className="opt" onClick={() => onLook({ ...s.look, petPattern: i })}>
+              <Pet stage={s.evo} path={s.petPath} pattern={i} />
+              <span>{n}</span>
+            </button>
           ))}
         </div>
       </div>
-      {swatches("hairColor", HAIR_COLORS, "Hair color")}
-      {swatches("shirt", SHIRTS, "Shirt color")}
-      <p className="note">Styling is free. Change it whenever you like.</p>
+      <p className="note">Patterns are free. Accessories below cost tokens.</p>
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DAILY_CAP, EVOLVE_BONUS, MAX_ADDED, MAX_ADDED_XP, START_TOKENS, addTask, buy, chooseEvolution, complete, fresh, logMeal, migrate, multiplier, rollover, toggleEquip, type QuestState } from "./quest";
+import { DAILY_CAP, EVOLVE_BONUS, MAX_ADDED, MAX_ADDED_XP, START_TOKENS, addTask, buy, chooseEvolution, complete, fresh, logMeal, migrate, multiplier, rollover, snapReward, toggleEquip, type QuestState } from "./quest";
 
 const D1 = "2026-10-24";
 
@@ -108,5 +108,19 @@ describe("quest rules", () => {
     for (let i = 0; i < 20; i++) s = addTask(s, { id: "x" + i, title: "x", why: "", xp: 10 });
     expect(s.extraTasks.length).toBe(MAX_ADDED);
     expect(rollover(s, "2026-10-25").state.extraTasks).toEqual([]);
+  });
+
+  it("previews what the next snap earns, matching logMeal", () => {
+    let s: QuestState = { ...fresh(D1), streak: 2 }; // the first quest today makes it a 3-day streak (x1.25)
+    for (let i = 0; i < 4; i++) {
+      const preview = snapReward(s);
+      const r = logMeal(s);
+      const xp = r.events.reduce((a, e) => a + (e.kind === "xp" ? e.gained : 0), 0);
+      const tokens = r.events.reduce((a, e) => a + (e.kind === "xp" ? e.tokens : 0), 0);
+      expect(preview).toMatchObject({ xp, tokens });
+      s = r.state;
+    }
+    expect(snapReward(s)).toEqual({ xp: 0, tokens: 0, toBonus: 0, capped: false });
+    expect(snapReward({ ...fresh(D1), todayBase: DAILY_CAP })).toMatchObject({ xp: 0, capped: true });
   });
 });

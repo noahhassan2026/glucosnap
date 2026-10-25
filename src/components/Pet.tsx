@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { speciesName, type PetPath } from "../game/pets";
 import type { Slot } from "../game/shop";
 
@@ -12,12 +13,41 @@ function star(cx: number, cy: number, r: number) {
   return `M${pts.join(" L")} Z`;
 }
 
-export function Pet({ stage, path = {}, equipped = {}, className }: {
+function heart(x: number, y: number, r: number) {
+  return `M${x} ${y + r * 0.8} C${x - r * 1.4} ${y - r * 0.1} ${x - r * 0.9} ${y - r * 1.2} ${x} ${y - r * 0.4} C${x + r * 0.9} ${y - r * 1.2} ${x + r * 1.4} ${y - r * 0.1} ${x} ${y + r * 0.8} Z`;
+}
+
+// Free coat pattern, clipped to the body (or the egg shell).
+function Pattern({ kind, cx, cy, r, egg }: { kind: number; cx: number; cy: number; r: number; egg?: boolean }) {
+  const ink = egg ? "var(--teal)" : "#000";
+  const inkOpacity = egg ? 0.3 : 0.16;
+  const spots: [number, number, number][] = [[-0.55, -0.45, 0.2], [0.5, -0.6, 0.15], [0.62, 0.05, 0.18], [-0.7, 0.2, 0.14], [0.05, -0.85, 0.12]];
+  switch (kind) {
+    case 1:
+      return <g fill={ink} opacity={inkOpacity}>{spots.map(([x, y, k]) => <circle key={x} cx={cx + x * r} cy={cy + y * r} r={k * r} />)}</g>;
+    case 2:
+      return (
+        <g stroke={ink} strokeOpacity={inkOpacity} strokeWidth={r * 0.16} strokeLinecap="round" fill="none">
+          {[-0.75, -0.42, -0.1].map((y) => <path key={y} d={`M${cx - r} ${cy + y * r} q${r} ${-r * 0.22} ${r * 2} 0`} />)}
+        </g>
+      );
+    case 3:
+      return <g fill={egg ? "var(--berry)" : "#fff"} opacity={egg ? 0.7 : 0.6}>{spots.slice(0, 4).map(([x, y, k]) => <path key={x} d={heart(cx + x * r, cy + y * r, k * r * 0.9)} />)}</g>;
+    case 4:
+      return <g fill="var(--sun)" opacity={0.85}>{spots.slice(0, 4).map(([x, y, k]) => <path key={x} d={star(cx + x * r, cy + y * r, k * r * 1.1)} />)}</g>;
+    default:
+      return null;
+  }
+}
+
+export function Pet({ stage, path = {}, equipped = {}, className, pattern = 0 }: {
   stage: number;
   path?: PetPath;
   equipped?: Partial<Record<Slot, string>>;
   className?: string;
+  pattern?: number;
 }) {
+  const clip = "petclip" + useId().replace(/[^a-zA-Z0-9]/g, "");
   const label = `Your pet, ${speciesName(stage, path)}`;
   const egg = stage === 0;
   const size = egg ? 30 : [0, 24, 30, 36, 40][stage];
@@ -33,10 +63,26 @@ export function Pet({ stage, path = {}, equipped = {}, className }: {
       {aura === "sparkles" && (
         <g fill="var(--sun)">{[[30, 40, 6], [130, 50, 5], [120, 100, 4], [40, 96, 5], [80, 18, 4]].map(([x, y, r]) => <path key={x} d={star(x, y, r)} />)}</g>
       )}
+      {aura === "rainbow" && (
+        <g fill="none" strokeWidth={5} opacity={0.8}>
+          {["#d8432f", "var(--sun)", "var(--leaf)", "var(--tide)"].map((c, i) => {
+            const r = (egg ? 40 : size + 26) - i * 5;
+            const y = egg ? 96 : cy + 6;
+            return <path key={c} d={`M${80 - r} ${y} A${r} ${r} 0 0 1 ${80 + r} ${y}`} stroke={c} />;
+          })}
+        </g>
+      )}
+      {aura === "bubbles" && (
+        <g fill="#fff" fillOpacity={0.35} stroke="var(--tide)" strokeWidth={1.5}>
+          {[[26, 48, 7], [136, 40, 5], [130, 92, 8], [32, 100, 4.5], [118, 18, 4]].map(([x, y, r]) => <circle key={x} cx={x} cy={y} r={r} />)}
+        </g>
+      )}
       {aura === "halo" && <ellipse cx={80} cy={top - 12} rx={20} ry={5} fill="none" stroke="var(--sun)" strokeWidth={3.5} />}
       {egg ? (
         <>
+          <defs><clipPath id={clip}><ellipse cx={80} cy={88} rx={26} ry={34} /></clipPath></defs>
           <ellipse cx={80} cy={88} rx={26} ry={34} fill="var(--surface)" stroke="var(--teal)" strokeWidth={3} />
+          {pattern > 0 && <g clipPath={`url(#${clip})`}><Pattern kind={pattern} cx={80} cy={92} r={28} egg /></g>}
           <path d="M60 84 l8 -6 l8 6 l8 -6 l8 6 l8 -6" stroke="var(--teal)" strokeWidth={3} fill="none" />
         </>
       ) : (
@@ -76,6 +122,8 @@ export function Pet({ stage, path = {}, equipped = {}, className }: {
             </>
           )}
           <circle cx={80} cy={cy} r={size} fill={body} />
+          <defs><clipPath id={clip}><circle cx={80} cy={cy} r={size} /></clipPath></defs>
+          {pattern > 0 && <g clipPath={`url(#${clip})`}><Pattern kind={pattern} cx={80} cy={cy} r={size} /></g>}
           <ellipse cx={80} cy={cy + size * 0.35} rx={size * 0.6} ry={size * 0.45} fill="var(--surface)" opacity={0.85} />
           {/* head feature by element */}
           {stage >= 2 && path.element === "leaf" && !hat && (
@@ -116,6 +164,12 @@ export function Pet({ stage, path = {}, equipped = {}, className }: {
               <rect x={80 + size * 0.2} y={cy + size * 0.3} width={7} height={16} rx={3} />
             </g>
           )}
+          {neck === "pendant" && (
+            <g>
+              <path d={`M${80 - size * 0.6} ${cy + size * 0.32} q${size * 0.6} 8 ${size * 1.2} 0`} stroke="var(--sun)" strokeWidth={1.5} fill="none" />
+              <path d={heart(80, cy + size * 0.5, 5)} fill="var(--berry)" stroke="#fff" strokeWidth={0.8} />
+            </g>
+          )}
           {neck === "bell" && (
             <g>
               <path d={`M${80 - size * 0.6} ${cy + size * 0.32} q${size * 0.6} 8 ${size * 1.2} 0`} stroke="var(--berry)" strokeWidth={3} fill="none" />
@@ -136,6 +190,18 @@ export function Pet({ stage, path = {}, equipped = {}, className }: {
           {[-16, -8, 0, 8, 16].map((dx, i) => (
             <circle key={dx} cx={80 + dx} cy={top + 3 + Math.abs(dx) * 0.25} r={4.5} fill={i % 2 ? "var(--sun)" : "var(--berry)"} />
           ))}
+        </g>
+      )}
+      {hat === "beret" && (
+        <g transform={`rotate(-12 80 ${top})`}>
+          <ellipse cx={80} cy={top} rx={18} ry={6.5} fill="#d8432f" />
+          <circle cx={80} cy={top - 6} r={2.5} fill="#d8432f" />
+        </g>
+      )}
+      {hat === "tiara" && (
+        <g>
+          <path d={`M68 ${top + 3} L68 ${top - 8} L74 ${top - 3} L80 ${top - 13} L86 ${top - 3} L92 ${top - 8} L92 ${top + 3} Z`} fill="var(--sun)" stroke="#b8860b" strokeWidth={1} />
+          <circle cx={80} cy={top - 2} r={2.2} fill="var(--berry)" /><circle cx={72} cy={top} r={1.5} fill="var(--tide)" /><circle cx={88} cy={top} r={1.5} fill="var(--tide)" />
         </g>
       )}
       {hat === "tophat" && (
