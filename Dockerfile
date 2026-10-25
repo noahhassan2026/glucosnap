@@ -6,6 +6,7 @@ RUN npm ci
 COPY index.html vite.config.ts tsconfig.json ./
 COPY public public
 COPY src src
+COPY api/coach_library.json api/coach_library.json
 RUN npm run build
 
 FROM python:3.12-slim

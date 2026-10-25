@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { load, save } from "../storage";
-import { buy, chooseEvolution, complete, fresh, isoDate, logMeal, migrate, rollover, toggleEquip, type QuestEvent, type QuestState, type Task } from "./quest";
+import { addTask, buy, chooseEvolution, complete, fresh, isoDate, logMeal, migrate, rollover, toggleEquip, type QuestEvent, type QuestState, type Task } from "./quest";
 import type { Element, Form } from "./pets";
 import type { Look } from "./shop";
 import { finishLesson, finishRiskCheck, type LessonResult } from "./learn";
@@ -46,18 +46,14 @@ export function useQuest(onEvents: (e: QuestEvent[], s: QuestState) => void) {
     completeTask: (id: string) => apply((s) => complete(s, id)),
     logMeal: () => apply(logMeal),
     addSuggestion: (sg: Suggestion) =>
-      apply((s) => {
-        const id = "sg-" + sg.kind;
-        if (s.extraTasks.some((t) => t.id === id)) return { state: s, events: [] };
-        const task: Task = {
-          id,
-          title: sg.text,
-          why: `Predicted peak drops ${sg.peak_reduction_pct}% to +${Math.round(sg.peak_delta_mg_dl)} mg/dL`,
-          xp: 20,
-          check: sg.kind === "walk" ? "steps" : undefined,
-        };
-        return { state: { ...s, extraTasks: [...s.extraTasks, task] }, events: [] };
-      }),
+      setState((s) => addTask(s, {
+        id: "sg-" + sg.kind,
+        title: sg.text,
+        why: `Predicted peak drops ${sg.peak_reduction_pct}% to +${Math.round(sg.peak_delta_mg_dl)} mg/dL`,
+        xp: 20,
+        check: sg.kind === "walk" ? "steps" : undefined,
+      })),
+    addTask: (task: Task) => setState((s) => addTask(s, task)),
     nextDay: (skip: boolean) => {
       const n = offset + (skip ? 2 : 1);
       setOffset(n);

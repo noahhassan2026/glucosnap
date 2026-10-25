@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DAILY_CAP, EVOLVE_BONUS, START_TOKENS, buy, chooseEvolution, complete, fresh, logMeal, migrate, multiplier, rollover, toggleEquip, type QuestState } from "./quest";
+import { DAILY_CAP, EVOLVE_BONUS, MAX_ADDED, MAX_ADDED_XP, START_TOKENS, addTask, buy, chooseEvolution, complete, fresh, logMeal, migrate, multiplier, rollover, toggleEquip, type QuestState } from "./quest";
 
 const D1 = "2026-10-24";
 
@@ -99,5 +99,14 @@ describe("quest rules", () => {
     const s: QuestState = { ...fresh(D1), streak: 6 };
     const r = logMeal(s);
     expect(r.state.shields).toBe(1);
+  });
+
+  it("adds coach quests once, clamps their XP and limits how many a day", () => {
+    let s = addTask(fresh(D1), { id: "ai-1", title: "Walk after dinner", why: "", xp: 500 });
+    expect(s.extraTasks[0].xp).toBe(MAX_ADDED_XP);
+    expect(addTask(s, { id: "ai-1", title: "again", why: "", xp: 10 })).toBe(s);
+    for (let i = 0; i < 20; i++) s = addTask(s, { id: "x" + i, title: "x", why: "", xp: 10 });
+    expect(s.extraTasks.length).toBe(MAX_ADDED);
+    expect(rollover(s, "2026-10-25").state.extraTasks).toEqual([]);
   });
 });

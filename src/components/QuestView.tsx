@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { DAILY_CAP, EVO, TIERS, allTasks, multiplier, rankFor, tokensFor, xpToNext, type QuestState } from "../game/quest";
 import { choiceFor, speciesName, type PetPath } from "../game/pets";
 import { Token } from "./ShopView";
@@ -23,6 +23,7 @@ export function QuestView(props: {
   onRename: (player: string, pet: string) => void;
   onShop: () => void;
   onEvolve: () => void;
+  children?: ReactNode; // shown under today's quests (the AI coach)
   reading?: number;
 }) {
   const { s } = props;
@@ -113,6 +114,8 @@ export function QuestView(props: {
         })}
         <p className="note">Today: {s.todayBase} of {DAILY_CAP} base XP. The daily cap keeps it about consistency, not grinding.</p>
       </section>
+
+      {props.children}
 
       <section className="card">
         <div className="spread">

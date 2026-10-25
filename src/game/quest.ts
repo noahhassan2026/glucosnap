@@ -28,6 +28,8 @@ export const START_TOKENS = 50;
 export const LEVEL_BONUS = 20;
 export const EVOLVE_BONUS = 30;
 export const tokensFor = (xp: number) => Math.round(xp / 5);
+export const MAX_ADDED_XP = 20; // quests from suggestions, the AI coach or meal ideas
+export const MAX_ADDED = 8; // added quests per day
 
 export interface Task {
   id: string;
@@ -36,6 +38,7 @@ export interface Task {
   xp: number;
   check?: string; // what would verify it in the full app
   auto?: boolean; // completed by an action elsewhere in the app, not a button
+  category?: string; // coach quests: move, order, pair, swap, cook, ...
 }
 
 export interface QuestState {
@@ -116,6 +119,14 @@ export function baseTasks(s: QuestState): Task[] {
   if (weeklyDue || s.done.weekly)
     tasks.push({ id: "weekly", title: "Weekly health snapshot", why: "Run the Health tab with your recent sensor data", xp: 25, auto: true });
   return tasks;
+}
+
+// Add a quest to today's list (from a suggestion, the coach or a meal idea). Its XP is clamped so
+// no generated quest outweighs the built-in ones, and the daily cap still applies when it's done.
+export function addTask(prev: QuestState, task: Task): QuestState {
+  if (prev.extraTasks.length >= MAX_ADDED || allTasks(prev).some((t) => t.id === task.id)) return prev;
+  const t: Task = { ...task, xp: Math.max(5, Math.min(MAX_ADDED_XP, Math.round(task.xp))) };
+  return { ...prev, extraTasks: [...prev.extraTasks, t] };
 }
 
 export function allTasks(s: QuestState) {

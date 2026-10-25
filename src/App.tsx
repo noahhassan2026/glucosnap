@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { CgmPoint, Profile } from "./api/types";
-import { type QuestEvent, type QuestState } from "./game/quest";
+import { MAX_ADDED, allTasks, type QuestEvent, type QuestState, type Task } from "./game/quest";
 import { useQuest } from "./game/useQuest";
 import { loadArray, save, useStored } from "./storage";
 import { HealthView } from "./components/HealthView";
@@ -9,6 +9,8 @@ import { SnapView, type LoggedMeal } from "./components/SnapView";
 import { Pet } from "./components/Pet";
 import { ShopView, Token } from "./components/ShopView";
 import { EvolveDialog } from "./components/EvolveDialog";
+import { CoachQuests } from "./components/CoachQuests";
+import { MealsView } from "./components/MealsView";
 import { LearnView } from "./components/LearnView";
 import { HistoryView } from "./components/HistoryView";
 import { RemindersPanel } from "./components/RemindersPanel";
@@ -35,6 +37,7 @@ function describe(events: QuestEvent[], s: QuestState) {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("snap");
+  const [snapPane, setSnapPane] = useState<"snap" | "ideas">("snap");
   const [toast, setToast] = useState<string | null>(null);
   const [petAnim, setPetAnim] = useState("");
   const [evolveOpen, setEvolveOpen] = useState(false);
@@ -63,6 +66,12 @@ export default function App() {
   const s = quest.state;
 
   const setCgm = (c: CgmPoint[]) => { setCgmState(c); save("glucosnap-cgm", c); };
+  const addedIds = s.extraTasks.map((t) => t.id);
+  const addQuest = (t: Task) => {
+    if (s.extraTasks.length >= MAX_ADDED) return show("Today's quest list is full. Finish a few first!");
+    quest.addTask(t);
+    show("Added to today's quests");
+  };
   const setHistory = (h: LoggedMeal[]) => { setHistoryState(h); save("glucosnap-history", h); };
   const reading = cgm.at(-1)?.mg_dl;
 
@@ -104,6 +113,11 @@ export default function App() {
 
       <main>
         <div hidden={tab !== "snap"}>
+          <div className="seg subtabs" role="tablist" aria-label="Snap or meal ideas">
+            <button role="tab" aria-selected={snapPane === "snap"} onClick={() => setSnapPane("snap")}>Snap a meal</button>
+            <button role="tab" aria-selected={snapPane === "ideas"} onClick={() => setSnapPane("ideas")}>Meal ideas</button>
+          </div>
+          <div hidden={snapPane !== "snap"}>
           <SnapView
             profile={profile}
             cgm={cgm}
@@ -116,6 +130,10 @@ export default function App() {
             onOpenHistory={() => setTab("history")}
             onAddSuggestion={(sg) => { quest.addSuggestion(sg); show("Added to today's quests"); }}
           />
+          </div>
+          <div hidden={snapPane !== "ideas"}>
+            <MealsView profile={profile} history={history} added={addedIds} onAdd={addQuest} />
+          </div>
         </div>
         <div hidden={tab !== "history"}>
           <HistoryView history={history} cgm={cgm} onChange={setHistory} onSnap={() => setTab("snap")} />
@@ -134,7 +152,10 @@ export default function App() {
             onShop={() => setTab("shop")}
             onEvolve={() => setEvolveOpen(true)}
             reading={reading}
-          />
+          >
+            <CoachQuests active={tab === "quest"} history={history} profile={profile}
+              have={allTasks(s).map((t) => t.title)} added={addedIds} onAdd={addQuest} />
+          </QuestView>
         </div>
         <div hidden={tab !== "learn"}>
           <LearnView

@@ -52,6 +52,9 @@ function suggestionsFor(m: Macros, walk: number, pre?: number): Suggestion[] {
   if (m.carbs > 40)
     opts.push(["swap", "halfcarb", "Swap half the rice, bread or pasta for beans or vegetables",
       { ...m, carbs: m.carbs * 0.7, fiber: m.fiber + 5 }, walk]);
+  if (m.fiber < 8)
+    opts.push(["add_fiber", "fiber", "Add a side of beans, lentils or a big salad",
+      { ...m, carbs: m.carbs + 8, protein: m.protein + 4, fiber: m.fiber + 7 }, walk]);
   if (m.protein < 25)
     opts.push(["add_protein", "protein", "Add a protein side, like eggs, yogurt or chicken",
       { ...m, protein: m.protein + 15, fat: m.fat + 4 }, walk]);

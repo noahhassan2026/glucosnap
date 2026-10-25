@@ -1,5 +1,6 @@
-import type { PredictContext, PredictResponse, RiskRequest, RiskResponse } from "./types";
+import type { MealIdeasRequest, PredictContext, PredictResponse, QuestsRequest, RiskRequest, RiskResponse } from "./types";
 import { mockPredict, mockRisk } from "./mock";
+import { mockMealIdeas, mockQuests } from "./coachMock";
 import { ApiError } from "./errors";
 
 const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
@@ -67,3 +68,23 @@ export async function risk(req: RiskRequest): Promise<{ data: RiskResponse; sour
   }
   return { data: await res.json(), source: "model" };
 }
+
+async function postJson<Req, Res>(path: string, req: Req, mock: (r: Req) => Promise<Res>): Promise<{ data: Res; source: Source }> {
+  if (FORCE_MOCK) return { data: await mock(req), source: "demo" };
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
+  } catch (e) {
+    if (unreachable(e)) return { data: await mock(req), source: "demo" };
+    throw e;
+  }
+  if (!res.ok) {
+    const body = await res.text();
+    if (unreachable(null, res, body)) return { data: await mock(req), source: "demo" };
+    throw new ApiError(res.status, errorText(res, body));
+  }
+  return { data: await res.json(), source: "model" };
+}
+
+export const coachQuests = (req: QuestsRequest) => postJson("/api/quests", req, mockQuests);
+export const mealIdeas = (req: MealIdeasRequest) => postJson("/api/meal-ideas", req, mockMealIdeas);
