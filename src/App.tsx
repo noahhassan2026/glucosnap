@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { CgmPoint, Profile } from "./api/types";
-import { type QuestEvent, type QuestState } from "./game/quest";
+import { MAX_ADDED, allTasks, type QuestEvent, type QuestState, type Task } from "./game/quest";
 import { useQuest } from "./game/useQuest";
 import { loadArray, save, useStored } from "./storage";
 import { HealthView } from "./components/HealthView";
@@ -9,8 +9,10 @@ import { SnapView, type LoggedMeal } from "./components/SnapView";
 import { Pet } from "./components/Pet";
 import { ShopView, Token } from "./components/ShopView";
 import { EvolveDialog } from "./components/EvolveDialog";
+import { CoachQuests } from "./components/CoachQuests";
+import { MealsView } from "./components/MealsView";
 
-type Tab = "snap" | "health" | "quest" | "shop";
+type Tab = "snap" | "meals" | "health" | "quest" | "shop";
 
 function describe(events: QuestEvent[], s: QuestState) {
   const evo = events.find((e) => e.kind === "evolve");
@@ -57,6 +59,12 @@ export default function App() {
   const s = quest.state;
 
   const setCgm = (c: CgmPoint[]) => { setCgmState(c); save("glucosnap-cgm", c); };
+  const addedIds = s.extraTasks.map((t) => t.id);
+  const addQuest = (t: Task) => {
+    if (s.extraTasks.length >= MAX_ADDED) return show("Today's quest list is full. Finish a few first!");
+    quest.addTask(t);
+    show("Added to today's quests");
+  };
 
   return (
     <div className="app">
@@ -75,7 +83,7 @@ export default function App() {
       </header>
 
       <nav className="tabs" role="tablist" aria-label="Sections">
-        {([["snap", "Snap"], ["health", "Health"], ["quest", "Quest"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
+        {([["snap", "Snap"], ["meals", "Meals"], ["health", "Health"], ["quest", "Quest"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{label}</button>
         ))}
       </nav>
@@ -96,6 +104,9 @@ export default function App() {
             onAddSuggestion={(sg) => { quest.addSuggestion(sg); show("Added to today's quests"); }}
           />
         </div>
+        <div hidden={tab !== "meals"}>
+          <MealsView profile={profile} history={history} added={addedIds} onAdd={addQuest} />
+        </div>
         <div hidden={tab !== "health"}>
           <HealthView profile={profile} setProfile={setProfile} cgm={cgm} setCgm={setCgm} onSnapshot={() => quest.completeTask("weekly")} />
         </div>
@@ -109,7 +120,10 @@ export default function App() {
             onRename={quest.rename}
             onShop={() => setTab("shop")}
             onEvolve={() => setEvolveOpen(true)}
-          />
+          >
+            <CoachQuests active={tab === "quest"} history={history} profile={profile}
+              have={allTasks(s).map((t) => t.title)} added={addedIds} onAdd={addQuest} />
+          </QuestView>
         </div>
         <div hidden={tab !== "shop"}>
           <ShopView

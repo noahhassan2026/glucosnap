@@ -5,6 +5,8 @@
 
 POST /api/predict  multipart: photo (optional if context.macros given) + context (JSON string)
 POST /api/risk     JSON: {cgm: [{t, mg_dl}], profile?}
+POST /api/quests   JSON: recent meals + profile -> custom anti-spike quests (AI, with a built-in fallback)
+POST /api/meal-ideas JSON: meal type, budget, diet, pantry -> cheap home meals, each scored by the curve model
 GET  /api/health
 """
 import json, os, pickle, sys
@@ -21,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "glucosnap_ml"))
 from features import CURVE_TIERS, MEAL_TYPES, HISTORY_KEYS, pre_meal_stats, cgm_summary, history_features  # noqa: E402
 import vision                                                                # noqa: E402
+import coach                                                                 # noqa: E402
 
 MODEL_DIR = os.environ.get("GLUCOSNAP_MODELS", os.path.join(HERE, "models"))
 META = json.load(open(os.path.join(MODEL_DIR, "meta.json")))
@@ -82,6 +85,37 @@ class Context(BaseModel):
 
 class RiskRequest(BaseModel):
     cgm: List[Reading]
+    profile: Optional[Profile] = None
+
+
+class LoggedMeal(BaseModel):
+    label: str = Field("Meal", max_length=80)
+    meal_type: Optional[Literal["breakfast", "lunch", "dinner", "snack"]] = None
+    carbs: float = Field(ge=0)
+    protein: Optional[float] = Field(None, ge=0)
+    fat: Optional[float] = Field(None, ge=0)
+    fiber: Optional[float] = Field(None, ge=0)
+    peak: Optional[float] = None                   # predicted rise, mg/dL
+
+
+class QuestsRequest(BaseModel):
+    meals: List[LoggedMeal] = Field(default_factory=list, max_length=10)   # newest first
+    profile: Optional[Profile] = None
+    risk_status: Optional[Literal["normal", "prediabetes", "t2d"]] = None
+    hour: float = Field(12.5, ge=0, lt=24)
+    count: int = Field(3, ge=1, le=5)
+    have: List[str] = Field(default_factory=list, max_length=30)          # titles already on today's list
+    exclude: List[str] = Field(default_factory=list, max_length=60)       # quest ids shown before ("new ideas")
+    seed: str = Field("", max_length=40)
+
+
+class MealIdeasRequest(BaseModel):
+    meal_type: Literal["breakfast", "lunch", "dinner", "snack"] = "dinner"
+    diet: Literal["any", "vegetarian", "vegan"] = "any"
+    budget: float = Field(3.0, ge=1, le=10)        # US dollars per serving
+    pantry: str = Field("", max_length=200)
+    count: int = Field(3, ge=1, le=6)
+    exclude: List[str] = Field(default_factory=list, max_length=60)       # idea ids shown before
     profile: Optional[Profile] = None
 
 
@@ -163,6 +197,9 @@ def suggestions(ctx, macros, walk, window, hist, base_peak):
                       calories=None if macros.calories is None else macros.calories - 2 * macros.carbs)
         opts.append(("half-carbs", "swap", "Swap half the starch (rice, bread, pasta) for vegetables or beans",
                      Macros(carbs=half.carbs + 8, protein=half.protein + 5, fat=half.fat, fiber=half.fiber + 6), walk))
+    if macros.fiber < 8:
+        opts.append(("add-fiber", "add_fiber", "Add a side of beans, lentils or a big salad",
+                     Macros(carbs=macros.carbs + 8, protein=macros.protein + 4, fat=macros.fat, fiber=macros.fiber + 7), walk))
     if macros.protein < 20:
         opts.append(("add-protein", "add_protein", "Add a protein side (eggs, chicken, Greek yogurt)",
                      Macros(carbs=macros.carbs, protein=macros.protein + 20, fat=macros.fat + 5, fiber=macros.fiber), walk))
@@ -178,7 +215,8 @@ def suggestions(ctx, macros, walk, window, hist, base_peak):
 # ---------- routes -----------------------------------------------------------------------
 @app.get("/api/health")
 def health():
-    return {"ok": True, "model_version": META["version"], "vision_provider": vision.PROVIDER, "vision_model": vision.MODEL if vision.PROVIDER else None}
+    return {"ok": True, "model_version": META["version"], "vision_provider": vision.PROVIDER, "vision_model": vision.MODEL if vision.PROVIDER else None,
+            "coach_model": coach.MODEL if coach.available() else None}
 
 
 @app.post("/api/predict")
@@ -218,6 +256,41 @@ async def predict(context: str = Form(...), photo: Optional[UploadFile] = File(N
     curve = predict_curve(ctx, mac, ctx.walk_after_meal_min, window, hist)
     return dict(meal=meal, curve=curve,
                 suggestions=suggestions(ctx, mac, ctx.walk_after_meal_min, window, hist, curve["peak_delta_mg_dl"]),
+                model_version=META["version"])
+
+
+@app.post("/api/quests")
+def quests(req: QuestsRequest):
+    meals = [m.model_dump() for m in req.meals]
+    return coach.custom_quests(meals, req.profile.model_dump() if req.profile else None, req.risk_status, req.hour,
+                               req.count, req.have, req.exclude, req.seed)
+
+
+MEAL_HOURS = {"breakfast": 8.0, "lunch": 12.5, "dinner": 18.5, "snack": 15.5}
+
+
+@app.post("/api/meal-ideas")
+def meal_ideas(req: MealIdeasRequest):
+    ctx = Context(meal_type=req.meal_type, hour=MEAL_HOURS[req.meal_type], profile=req.profile)
+    shown = [m["name"] for m in coach.LIBRARY["meals"] if m["id"] in req.exclude]
+
+    def scored(ideas):
+        for m in ideas:
+            c = predict_curve(ctx, Macros(**m["macros"]), 0, None)
+            m.update(peak_delta_mg_dl=c["peak_delta_mg_dl"], peak_minute=c["peak_minute"], tier=c["tier"])
+        return ideas
+
+    # The curve model checks the AI: an idea it expects to spike more than every built-in meal of this type is dropped.
+    steady = max(m["peak_delta_mg_dl"] for m in scored([dict(m) for m in coach.LIBRARY["meals"] if req.meal_type in m["meal_types"]]))
+    ai = [m for m in scored(coach.ai_meals(req.meal_type, req.diet, req.budget, req.pantry, req.count, shown))
+          if m["peak_delta_mg_dl"] <= steady and m["id"] not in req.exclude]
+    ai = sorted(ai, key=lambda m: m["peak_delta_mg_dl"])[:req.count]
+    lib = scored(coach.library_meals(req.meal_type, req.diet, req.budget, req.pantry, set()))
+    # unseen ideas first; once every one has been shown, start over instead of coming back empty
+    lib = sorted(lib, key=lambda m: (m["id"] in req.exclude, -m["pantry_hits"], m["peak_delta_mg_dl"]))[:req.count - len(ai)]
+    for m in ai + lib:
+        m.pop("pantry_hits", None); m.pop("meal_types", None); m.pop("diet", None)
+    return dict(ideas=ai + lib, source="ai" if ai else "library", model=coach.MODEL if ai else None,
                 model_version=META["version"])
 
 

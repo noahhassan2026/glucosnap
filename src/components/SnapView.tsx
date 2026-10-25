@@ -21,6 +21,10 @@ export interface LoggedMeal {
   at: string;
   label: string;
   carbs: number;
+  protein?: number;
+  fat?: number;
+  fiber?: number;
+  mealType?: MealType;
   peak: number;
   peakMinute: number;
   thumb?: string;
@@ -123,6 +127,10 @@ export function SnapView(props: {
           at: now.toISOString(),
           label: r.data.meal.label,
           carbs: r.data.meal.carbs,
+          protein: r.data.meal.protein,
+          fat: r.data.meal.fat,
+          fiber: r.data.meal.fiber,
+          mealType,
           peak: r.data.curve.peak_delta_mg_dl,
           peakMinute: r.data.curve.peak_minute,
           thumb: photo ? await thumbnail(photo) : undefined,

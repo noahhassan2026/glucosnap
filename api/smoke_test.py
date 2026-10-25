@@ -61,3 +61,21 @@ assert r.status_code == 200, r.text; print("risk  ", r.json())
 r = c.post("/api/risk", json={"cgm": cgm(2)})
 assert r.status_code == 422 and "3 days" in r.json()["detail"]
 print("all checks passed")
+
+# Coach endpoints work with no AI key: the built-in library answers.
+spaghetti = {"label": "Spaghetti and meatballs", "meal_type": "dinner", "carbs": 85, "protein": 34, "fat": 28, "fiber": 7, "peak": 62}
+r = c.post("/api/quests", json={"meals": [spaghetti], "hour": 19, "count": 3})
+assert r.status_code == 200, r.text
+q = r.json(); assert len(q["quests"]) == 3 and len({x["category"] for x in q["quests"]}) == 3, q
+print("quests", q["source"], [x["id"] for x in q["quests"]])
+r2 = c.post("/api/quests", json={"meals": [spaghetti], "hour": 19, "count": 3, "exclude": [x["id"] for x in q["quests"]]})
+assert not {x["id"] for x in r2.json()["quests"]} & {x["id"] for x in q["quests"]}, "new ideas should differ"
+
+r = c.post("/api/meal-ideas", json={"meal_type": "dinner", "budget": 2, "diet": "vegan", "pantry": "chickpeas, spinach"})
+assert r.status_code == 200, r.text
+ideas = r.json()["ideas"]; assert len(ideas) == 3 and all(i["cost_usd"] <= 2 for i in ideas), ideas
+print("meals ", r.json()["source"], [(i["name"], i["peak_delta_mg_dl"]) for i in ideas])
+assert c.post("/api/meal-ideas", json={"meal_type": "brunch"}).status_code == 422
+r = c.post("/api/quests", json={"meals": [{"label": "Bagel", "carbs": 50}]})       # macros other than carbs left out
+assert r.status_code == 200, r.text
+print("coach ok")

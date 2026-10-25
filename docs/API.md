@@ -78,8 +78,63 @@ Response
 
 `422` when there are fewer than 3 days of data. The estimate uses the most recent 4 days.
 
+## POST /api/quests
+
+Custom anti-spike quests from the AI coach. Works without an AI key (built-in quests, `source: "library"`).
+
+```jsonc
+{
+  "meals": [{ "label": "Spaghetti and meatballs", "meal_type": "dinner", "carbs": 85, "protein": 34, "fat": 28, "fiber": 7, "peak": 62 }], // newest first, up to 10
+  "profile": { ... },                 // optional
+  "risk_status": "prediabetes",       // optional, from /api/risk
+  "hour": 19.5,
+  "count": 3,                         // 1-5
+  "have": ["Walk 15 minutes after eating"],  // titles already on today's list (not repeated)
+  "exclude": ["lib-walk10"],          // ids shown before, for "new ideas"
+  "seed": "2026-10-25"
+}
+```
+
+Response
+
+```jsonc
+{
+  "quests": [{ "id": "ai-3f2a9c01de", "title": "Walk 10 minutes after your spaghetti", "why": "...", "category": "move", "xp": 15 }],
+  "coach_note": "Your spaghetti dinner was carb-heavy...",
+  "source": "ai" | "library",
+  "model": "gemma-4-31b-it"           // null for library
+}
+```
+
+`category` is one of `move order pair swap hydrate sleep stress plan cook`. XP comes from the category
+(cook 20; move, order, pair, swap 15; the rest 10), never from the model.
+
+## POST /api/meal-ideas
+
+```jsonc
+{ "meal_type": "dinner", "diet": "any" | "vegetarian" | "vegan", "budget": 3, "pantry": "eggs, rice", "count": 3,
+  "exclude": ["lentil-soup"], "profile": { ... } }
+```
+
+Response
+
+```jsonc
+{
+  "ideas": [{
+    "id": "chickpea-curry", "name": "Chickpea and spinach curry", "why": "...", "cost_usd": 1.3, "minutes": 20,
+    "ingredients": ["..."], "steps": ["..."],
+    "macros": { "carbs": 50, "protein": 14, "fat": 8, "fiber": 12, "calories": 330 },
+    "peak_delta_mg_dl": 21.3, "peak_minute": 60, "tier": "basic" | "labs", "source": "ai" | "library"
+  }],
+  "source": "ai" | "library", "model": "gemma-4-31b-it", "model_version": "2026-10-24.2"
+}
+```
+
+Every idea is scored by the curve model (`peak_delta_mg_dl`). AI ideas predicted to spike more than every
+built-in meal of the same type are dropped. Once every built-in idea has been excluded, they repeat.
+
 ## GET /api/health
 
 ```jsonc
-{ "ok": true, "model_version": "2026-10-24.1", "vision_provider": "navigator" | "anthropic" | null, "vision_model": "gemma-4-31b-it" }
+{ "ok": true, "model_version": "2026-10-24.1", "vision_provider": "navigator" | "anthropic" | null, "vision_model": "gemma-4-31b-it", "coach_model": "gemma-4-31b-it" }
 ```

@@ -13,6 +13,7 @@ pip install -r requirements.txt
 cp .env.example .env          # put your NaviGator key in .env (it is git-ignored, never commit it)
 uvicorn app:app --port 8000 --env-file .env
 python smoke_test.py          # end-to-end checks with synthetic CGM, no key needed
+python coach_test.py          # AI coach guardrails with a stubbed model
 ```
 
 Then `npm run dev` in the repo root; Vite proxies `/api` to port 8000. Interactive docs are at
@@ -23,6 +24,14 @@ http://localhost:8000/docs.
 model enabled. Without NaviGator, `ANTHROPIC_API_KEY` uses Claude instead. With neither, `/api/predict`
 answers 503 for photos and the app asks the user for macros; everything else still works.
 `GET /api/health` shows which provider is active.
+
+**AI coach.** The same key powers `/api/quests` (custom anti-spike quests from the user's recent meals and
+profile) and `/api/meal-ideas` (cheap, easy home meals). `coach.py` checks every AI answer before the app
+sees it: quests that reward eating less, fasting, smaller portions, weight or medication are dropped, XP is set
+by category on the server (never by the model), and each meal idea is run through the curve model; ideas
+predicted to spike more than every built-in meal of that type, or over budget, are dropped. When the AI is
+missing, slow (30 s timeout) or off-script, the built-in library in `coach_library.json` (23 quests,
+20 meals) fills in, so both features work without a key.
 
 ## What the models are
 
