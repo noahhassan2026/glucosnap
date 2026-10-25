@@ -10,8 +10,11 @@ import { Pet } from "./components/Pet";
 import { ShopView, Token } from "./components/ShopView";
 import { EvolveDialog } from "./components/EvolveDialog";
 import { LearnView } from "./components/LearnView";
+import { HistoryView } from "./components/HistoryView";
+import { RemindersPanel } from "./components/RemindersPanel";
+import { useReminders } from "./reminders/useReminders";
 
-type Tab = "snap" | "health" | "quest" | "learn" | "shop";
+type Tab = "snap" | "history" | "health" | "quest" | "learn" | "shop";
 
 function describe(events: QuestEvent[], s: QuestState) {
   const evo = events.find((e) => e.kind === "evolve");
@@ -40,7 +43,9 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("glucosnap-profile") ?? "{}"); } catch { return {}; }
   });
   const [cgm, setCgmState] = useState<CgmPoint[]>(() => loadArray("glucosnap-cgm"));
-  const [history, setHistory] = useState<LoggedMeal[]>(() => loadArray("glucosnap-history"));
+  const [history, setHistoryState] = useState<LoggedMeal[]>(() => loadArray("glucosnap-history"));
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const reminders = useReminders(history[0]?.at);
 
   const show = useCallback((msg: string) => {
     setToast(msg);
@@ -58,6 +63,7 @@ export default function App() {
   const s = quest.state;
 
   const setCgm = (c: CgmPoint[]) => { setCgmState(c); save("glucosnap-cgm", c); };
+  const setHistory = (h: LoggedMeal[]) => { setHistoryState(h); save("glucosnap-history", h); };
   const reading = cgm.at(-1)?.mg_dl;
 
   return (
@@ -67,17 +73,31 @@ export default function App() {
           <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--teal)" /><path d="M5 22 C10 22 11 9 16 9 S22 20 27 18" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" /></svg>
           <h1>GlucoSnap</h1>
         </div>
-        <button className="mini-quest" onClick={() => setTab("quest")} aria-label={`Level ${s.level}, ${s.streak}-day streak. Open quests`}>
-          <Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={"mini-pet " + petAnim} />
-          <span>Lv {s.level}</span>
-          <span className="mini-streak">🔥 {s.streak}</span>
-          <Token n={s.tokens} />
-          {s.evoReady && <span className="dot" aria-label="Pet ready to evolve" />}
-        </button>
+        <div className="top-actions">
+          <button className="bell" onClick={() => setRemindersOpen(true)} aria-label="Meal reminders">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+            {reminders.list.some((r) => r.on) && <span className="bell-on" aria-hidden="true" />}
+          </button>
+          <button className="mini-quest" onClick={() => setTab("quest")} aria-label={`Level ${s.level}, ${s.streak}-day streak. Open quests`}>
+            <Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={"mini-pet " + petAnim} />
+            <span>Lv {s.level}</span>
+            <span className="mini-streak">🔥 {s.streak}</span>
+            <Token n={s.tokens} />
+            {s.evoReady && <span className="dot" aria-label="Pet ready to evolve" />}
+          </button>
+        </div>
       </header>
 
+      {reminders.alerts.map((a) => (
+        <div key={a.id} className="reminder-banner" role="alert">
+          <span><b>{a.title}</b><small>{a.body}</small></span>
+          <button className="small-btn" onClick={() => { reminders.dismiss(a.id); setTab("snap"); }}>Snap</button>
+          <button className="ghost small-btn" onClick={() => reminders.dismiss(a.id)} aria-label="Dismiss">✕</button>
+        </div>
+      ))}
+
       <nav className="tabs" role="tablist" aria-label="Sections">
-        {([["snap", "Snap"], ["health", "Health"], ["quest", "Quest"], ["learn", "Learn"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
+        {([["snap", "Snap"], ["history", "History"], ["health", "Health"], ["quest", "Quest"], ["learn", "Learn"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{label}</button>
         ))}
       </nav>
@@ -90,13 +110,15 @@ export default function App() {
             history={history}
             addedSuggestions={s.extraTasks.map((t) => t.id)}
             onLogged={(m) => {
-              const h = [m, ...history].slice(0, 30);
-              setHistory(h);
-              save("glucosnap-history", h);
+              setHistory([m, ...history].slice(0, 60));
               quest.logMeal();
             }}
+            onOpenHistory={() => setTab("history")}
             onAddSuggestion={(sg) => { quest.addSuggestion(sg); show("Added to today's quests"); }}
           />
+        </div>
+        <div hidden={tab !== "history"}>
+          <HistoryView history={history} cgm={cgm} onChange={setHistory} onSnap={() => setTab("snap")} />
         </div>
         <div hidden={tab !== "health"}>
           <HealthView profile={profile} setProfile={setProfile} cgm={cgm} setCgm={setCgm} onSnapshot={() => quest.completeTask("weekly")} />
@@ -134,6 +156,16 @@ export default function App() {
           />
         </div>
       </main>
+      {remindersOpen && (
+        <RemindersPanel
+          list={reminders.list}
+          setList={reminders.setList}
+          perm={reminders.perm}
+          onEnable={reminders.enableNotifications}
+          onTest={reminders.test}
+          onClose={() => setRemindersOpen(false)}
+        />
+      )}
       {evolveOpen && s.evoReady && (
         <EvolveDialog s={s} onPick={(p) => { quest.chooseEvolution(p); setEvolveOpen(false); }} onLater={() => setEvolveOpen(false)} />
       )}

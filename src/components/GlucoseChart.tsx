@@ -1,14 +1,22 @@
 import type { Curve } from "../api/types";
+import type { ActualPoint } from "../history/match";
 
 const W = 340, H = 200, L = 40, R = 12, T = 14, B = 30;
 
 // 2-hour post-meal curve with its 80% band. Shows absolute mg/dL when a baseline is known,
-// otherwise the rise above the pre-meal level. An optional previous curve is drawn dashed.
-export function GlucoseChart({ curve, previous }: { curve: Curve; previous?: Curve | null }) {
+// otherwise the rise above the pre-meal level. An optional previous curve is drawn dashed,
+// and measured readings (as a rise from before the meal) are drawn on top.
+export function GlucoseChart({ curve, previous, actual, nowMinute }: {
+  curve: Curve;
+  previous?: Curve | null;
+  actual?: ActualPoint[];
+  nowMinute?: number | null;
+}) {
   const base = curve.baseline_mg_dl ?? 0;
   const abs = curve.baseline_mg_dl != null;
-  const vals = [...curve.delta_high, ...(previous?.delta_mg_dl ?? [])].map((v) => v + base);
-  const lo = Math.min(base, ...curve.delta_low.map((v) => v + base));
+  const seen = (actual ?? []).filter((p) => p.minute >= 0 && p.minute <= 120);
+  const vals = [...curve.delta_high, ...(previous?.delta_mg_dl ?? []), ...seen.map((p) => p.delta)].map((v) => v + base);
+  const lo = Math.min(base, ...[...curve.delta_low, ...seen.map((p) => p.delta)].map((v) => v + base));
   const hiRaw = Math.max(...vals, base + 40);
   const step = 20;
   const yMin = Math.floor(lo / step) * step;
@@ -46,6 +54,18 @@ export function GlucoseChart({ curve, previous }: { curve: Curve; previous?: Cur
       <path d={band} className="band" />
       {previous && <path d={line(previous.delta_mg_dl)} className="prev" />}
       <path d={line(curve.delta_mg_dl)} className="curve" />
+      {nowMinute != null && nowMinute > 0 && nowMinute < 120 && (
+        <g>
+          <line x1={x(nowMinute)} x2={x(nowMinute)} y1={T} y2={H - B} className="now" />
+          <text x={x(nowMinute)} y={T - 3} className="axis" textAnchor="middle">now</text>
+        </g>
+      )}
+      {seen.length > 1 && (
+        <path d={seen.map((p, i) => `${i ? "L" : "M"}${x(p.minute).toFixed(1)},${y(p.delta + base).toFixed(1)}`).join(" ")} className="actual" />
+      )}
+      {seen.filter((p) => p.minute > 0).map((p) => (
+        <circle key={p.minute} cx={x(p.minute)} cy={y(p.delta + base)} r={3} className="actual-dot" />
+      ))}
       <circle cx={x(curve.peak_minute)} cy={y(pv)} r={4.5} className="peak" />
       <text x={x(curve.peak_minute)} y={y(pv) - 9} className="peaklabel" textAnchor="middle">
         {abs ? Math.round(pv) : `+${Math.round(curve.peak_delta_mg_dl)}`}
