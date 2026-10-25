@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CgmPoint, Profile } from "./api/types";
 import { MAX_ADDED, allTasks, type QuestEvent, type QuestState, type Task } from "./game/quest";
 import { useQuest } from "./game/useQuest";
@@ -15,6 +15,8 @@ import { LearnView } from "./components/LearnView";
 import { HistoryView } from "./components/HistoryView";
 import { RemindersPanel } from "./components/RemindersPanel";
 import { useReminders } from "./reminders/useReminders";
+import { AccountPanel } from "./account/AccountPanel";
+import { leaderboard, type Player, type Session } from "./account/session";
 
 type Tab = "snap" | "history" | "health" | "quest" | "learn" | "shop";
 
@@ -35,7 +37,7 @@ function describe(events: QuestEvent[], s: QuestState) {
   return null;
 }
 
-export default function App() {
+export default function App(props: { session: Session; onSignUp: () => void; onLogOut: () => void; onDelete: () => Promise<void> }) {
   const [tab, setTab] = useState<Tab>("snap");
   const [snapPane, setSnapPane] = useState<"snap" | "ideas">("snap");
   const [toast, setToast] = useState<string | null>(null);
@@ -48,6 +50,8 @@ export default function App() {
   const [cgm, setCgmState] = useState<CgmPoint[]>(() => loadArray("glucosnap-cgm"));
   const [history, setHistoryState] = useState<LoggedMeal[]>(() => loadArray("glucosnap-history"));
   const [remindersOpen, setRemindersOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [players, setPlayers] = useState<Player[] | null>(null);
   const reminders = useReminders(history[0]?.at);
 
   const show = useCallback((msg: string) => {
@@ -62,7 +66,7 @@ export default function App() {
     if (events.some((e) => e.kind === "evolve-ready")) setEvolveOpen(true);
     setPetAnim("");
     requestAnimationFrame(() => setPetAnim(events.some((e) => e.kind === "evolve") ? "evolve" : "bounce"));
-  });
+  }, props.session.kind === "user" ? props.session.username : undefined);
   const s = quest.state;
 
   const setCgm = (c: CgmPoint[]) => { setCgmState(c); save("glucosnap-cgm", c); };
@@ -75,6 +79,14 @@ export default function App() {
   const setHistory = (h: LoggedMeal[]) => { setHistoryState(h); save("glucosnap-history", h); };
   const reading = cgm.at(-1)?.mg_dl;
 
+  // Real players from the server; refreshed when the Quest tab opens (after the latest save lands).
+  useEffect(() => {
+    if (tab !== "quest") return;
+    const id = setTimeout(() => leaderboard(props.session).then(setPlayers), 1800);
+    leaderboard(props.session).then(setPlayers);
+    return () => clearTimeout(id);
+  }, [tab, props.session]);
+
   return (
     <div className="app">
       <header className="top">
@@ -83,6 +95,10 @@ export default function App() {
           <h1>GlucoSnap</h1>
         </div>
         <div className="top-actions">
+          <button className="bell" onClick={() => setAccountOpen(true)} aria-label={props.session.kind === "user" ? `Account: ${props.session.username}` : "Guest account"}>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M4.8 20c.9-3.7 3.8-5.6 7.2-5.6s6.3 1.9 7.2 5.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+            {props.session.kind === "guest" && <span className="bell-on guest-dot" aria-hidden="true" />}
+          </button>
           <button className="bell" onClick={() => setRemindersOpen(true)} aria-label="Meal reminders">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
             {reminders.list.some((r) => r.on) && <span className="bell-on" aria-hidden="true" />}
@@ -152,6 +168,9 @@ export default function App() {
             onShop={() => setTab("shop")}
             onEvolve={() => setEvolveOpen(true)}
             reading={reading}
+            players={players}
+            guest={props.session.kind === "guest"}
+            onSignUp={props.onSignUp}
           >
             <CoachQuests active={tab === "quest"} history={history} profile={profile}
               have={allTasks(s).map((t) => t.title)} added={addedIds} onAdd={addQuest} />
@@ -185,6 +204,15 @@ export default function App() {
           onEnable={reminders.enableNotifications}
           onTest={reminders.test}
           onClose={() => setRemindersOpen(false)}
+        />
+      )}
+      {accountOpen && (
+        <AccountPanel
+          session={props.session}
+          onSignUp={() => { setAccountOpen(false); props.onSignUp(); }}
+          onLogOut={props.onLogOut}
+          onDelete={props.onDelete}
+          onClose={() => setAccountOpen(false)}
         />
       )}
       {evolveOpen && s.evoReady && (

@@ -8,6 +8,7 @@ POST /api/risk     JSON: {cgm: [{t, mg_dl}], profile?}
 POST /api/quests   JSON: recent meals + profile -> custom anti-spike quests (AI, with a built-in fallback)
 POST /api/meal-ideas JSON: meal type, budget, diet, pantry -> cheap home meals, each scored by the curve model
 GET  /api/health
+Accounts, saved user data and the leaderboard: see accounts.py (/api/auth/*, /api/me, /api/leaderboard)
 """
 import json, os, pickle, sys
 from datetime import datetime
@@ -24,6 +25,7 @@ sys.path.insert(0, os.path.join(HERE, "glucosnap_ml"))
 from features import CURVE_TIERS, MEAL_TYPES, HISTORY_KEYS, pre_meal_stats, cgm_summary, history_features  # noqa: E402
 import vision                                                                # noqa: E402
 import coach                                                                 # noqa: E402
+import accounts                                                              # noqa: E402
 
 MODEL_DIR = os.environ.get("GLUCOSNAP_MODELS", os.path.join(HERE, "models"))
 META = json.load(open(os.path.join(MODEL_DIR, "meta.json")))
@@ -42,6 +44,8 @@ MINUTES = [0] + META["horizons"]
 app = FastAPI(title="GlucoSnap model API", version=META["version"])
 origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
+ACCOUNTS = accounts.Accounts(accounts.make_store())
+app.include_router(accounts.router(ACCOUNTS))
 
 
 @app.exception_handler(Exception)
@@ -216,7 +220,8 @@ def suggestions(ctx, macros, walk, window, hist, base_peak):
 @app.get("/api/health")
 def health():
     return {"ok": True, "model_version": META["version"], "vision_provider": vision.PROVIDER, "vision_model": vision.MODEL if vision.PROVIDER else None,
-            "coach_model": coach.MODEL if coach.available() else None}
+            "coach_model": coach.MODEL if coach.available() else None,
+            "accounts_storage": type(ACCOUNTS.store).__name__}
 
 
 @app.post("/api/predict")

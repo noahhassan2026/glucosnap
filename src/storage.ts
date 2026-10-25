@@ -19,12 +19,20 @@ export function loadArray<T>(key: string): T[] {
   }
 }
 
+// The account sync listens here so every saved change also reaches the user's account.
+const listeners = new Set<(key: string) => void>();
+export function onSave(fn: (key: string) => void) {
+  listeners.add(fn);
+  return () => { listeners.delete(fn); };
+}
+
 export function save(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* storage unavailable */
   }
+  listeners.forEach((fn) => fn(key));
 }
 
 export function useStored<T>(key: string, initial: () => T) {

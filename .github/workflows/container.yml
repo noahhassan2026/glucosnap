@@ -44,6 +44,11 @@ jobs:
           curl -sf localhost:7860/ | grep -q '<div id="root">'
           curl -sf -X POST localhost:7860/api/predict \
             -F 'context={"meal_type":"lunch","hour":12,"macros":{"carbs":60,"protein":20,"fat":15,"fiber":5}}' | grep -q peak_delta_mg_dl
+          TOKEN=$(curl -sf -X POST localhost:7860/api/auth/signup -H 'Content-Type: application/json' \
+            -d '{"username":"ci_user","password":"ci-pass-1"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          curl -sf -X PUT localhost:7860/api/me/data -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            -d '{"data":{"glucosnap-quest":{"level":3,"streak":2}}}'
+          curl -sf localhost:7860/api/leaderboard | grep -q ci_user
       - name: Container logs
         if: failure() && github.event_name == 'pull_request'
         run: docker logs app || true

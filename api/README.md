@@ -14,6 +14,7 @@ cp .env.example .env          # put your NaviGator key in .env (it is git-ignore
 uvicorn app:app --port 8000 --env-file .env
 python smoke_test.py          # end-to-end checks with synthetic CGM, no key needed
 python coach_test.py          # AI coach guardrails with a stubbed model
+python accounts_test.py       # sign-up, login, data privacy and the leaderboard
 ```
 
 Then `npm run dev` in the repo root; Vite proxies `/api` to port 8000. Interactive docs are at
@@ -24,6 +25,10 @@ http://localhost:8000/docs.
 model enabled. Without NaviGator, `ANTHROPIC_API_KEY` uses Claude instead. With neither, `/api/predict`
 answers 503 for photos and the app asks the user for macros; everything else still works.
 `GET /api/health` shows which provider is active.
+
+**Accounts.** `accounts.py` handles sign-up, login, each user's saved app data and the leaderboard. Locally
+it saves to `api/data/` (git-ignored); with `AZURE_STORAGE_CONNECTION_STRING` set it uses Azure Blob Storage,
+so accounts survive redeploys (setup in [../docs/DEPLOY.md](../docs/DEPLOY.md)).
 
 **AI coach.** The same key powers `/api/quests` (custom anti-spike quests from the user's recent meals and
 profile) and `/api/meal-ideas` (cheap, easy home meals). `coach.py` checks every AI answer before the app

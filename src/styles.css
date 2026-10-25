@@ -338,3 +338,14 @@ button.linkish { background: none; color: var(--muted); padding: 0; font-size: 0
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } .switch span[aria-hidden], .switch span[aria-hidden]::after { transition: none; } }
 .subtabs { display: flex; margin-bottom: 14px; }
 .subtabs button { flex: 1; }
+
+/* accounts */
+.auth { display: grid; gap: 14px; max-width: 420px; width: 100%; margin: 6vh auto 0; }
+.auth-brand { justify-content: center; }
+.auth .auth-brand h1 { font-size: 1.9rem; position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+.auth-tag { text-align: center; margin: 0; text-wrap: balance; }
+.auth-seg { display: grid; grid-template-columns: 1fr 1fr; }
+.auth-guest { text-align: center; }
+.guest-dot { background: var(--sun); }
+.danger-btn { background: var(--danger); }
+.lb .tag { margin-left: 6px; }

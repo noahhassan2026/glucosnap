@@ -136,5 +136,26 @@ built-in meal of the same type are dropped. Once every built-in idea has been ex
 ## GET /api/health
 
 ```jsonc
-{ "ok": true, "model_version": "2026-10-24.1", "vision_provider": "navigator" | "anthropic" | null, "vision_model": "gemma-4-31b-it", "coach_model": "gemma-4-31b-it" }
+{ "ok": true, "model_version": "2026-10-24.1", "vision_provider": "navigator" | "anthropic" | null, "vision_model": "gemma-4-31b-it", "coach_model": "gemma-4-31b-it", "accounts_storage": "BlobStore" | "LocalStore" }
 ```
+
+`accounts_storage` is `BlobStore` when accounts are saved in Azure Blob Storage (they survive redeploys) and
+`LocalStore` when they are in a folder on the container's disk (lost on redeploy).
+
+## Accounts
+
+Server code in `api/accounts.py`. Logged-in calls send `Authorization: Bearer <token>`; tokens last 30 days.
+Errors come back as `{ "detail": "message to show" }`.
+
+| Call | Body | Answer |
+| --- | --- | --- |
+| `POST /api/auth/signup` | `{ "username", "password" }` | `{ "token", "username" }`; 422 for a bad username (3 to 20 of a-z, 0-9, _) or a password under 6 characters, 409 if taken |
+| `POST /api/auth/login` | `{ "username", "password" }` | `{ "token", "username" }`; 401 wrong details, 429 after 10 misses in 10 minutes |
+| `GET /api/me` | | `{ "username", "data": { ... }, "updated": ms }` |
+| `PUT /api/me/data` | `{ "data": { "glucosnap-quest": ..., ... } }` | `{ "ok": true, "updated": ms }`; 413 over 2 MB |
+| `DELETE /api/me` | | `{ "ok": true }`; the account and its data are gone |
+| `GET /api/leaderboard` | token optional | `{ "players": [{ "name", "level", "streak", "evo", "path": { "element", "form" }, "me" }] }` |
+
+`data` is the app's saved localStorage keys (profile, CGM, meal history, quest and pet state, coach quests,
+reminders), stored as sent and only ever returned to its owner. Passwords are stored as scrypt hashes. The
+leaderboard is built from the quest state's name, level, streak and pet only.
