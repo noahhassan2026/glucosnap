@@ -9,11 +9,12 @@ import { SnapView, type LoggedMeal } from "./components/SnapView";
 import { Pet } from "./components/Pet";
 import { ShopView, Token } from "./components/ShopView";
 import { EvolveDialog } from "./components/EvolveDialog";
+import { LearnView } from "./components/LearnView";
 import { HistoryView } from "./components/HistoryView";
 import { RemindersPanel } from "./components/RemindersPanel";
 import { useReminders } from "./reminders/useReminders";
 
-type Tab = "snap" | "history" | "health" | "quest" | "shop";
+type Tab = "snap" | "history" | "health" | "quest" | "learn" | "shop";
 
 function describe(events: QuestEvent[], s: QuestState) {
   const evo = events.find((e) => e.kind === "evolve");
@@ -63,6 +64,7 @@ export default function App() {
 
   const setCgm = (c: CgmPoint[]) => { setCgmState(c); save("glucosnap-cgm", c); };
   const setHistory = (h: LoggedMeal[]) => { setHistoryState(h); save("glucosnap-history", h); };
+  const reading = cgm.at(-1)?.mg_dl;
 
   return (
     <div className="app">
@@ -95,7 +97,7 @@ export default function App() {
       ))}
 
       <nav className="tabs" role="tablist" aria-label="Sections">
-        {([["snap", "Snap"], ["history", "History"], ["health", "Health"], ["quest", "Quest"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
+        {([["snap", "Snap"], ["history", "History"], ["health", "Health"], ["quest", "Quest"], ["learn", "Learn"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{label}</button>
         ))}
       </nav>
@@ -131,6 +133,16 @@ export default function App() {
             onRename={quest.rename}
             onShop={() => setTab("shop")}
             onEvolve={() => setEvolveOpen(true)}
+            reading={reading}
+          />
+        </div>
+        <div hidden={tab !== "learn"}>
+          <LearnView
+            s={s}
+            profile={profile}
+            onFinishLesson={quest.finishLesson}
+            onRiskDone={quest.finishRiskCheck}
+            onShop={() => setTab("shop")}
           />
         </div>
         <div hidden={tab !== "shop"}>
@@ -139,6 +151,8 @@ export default function App() {
             onBuy={(id) => { const err = quest.buy(id); show(err ?? "Bought and equipped"); }}
             onToggle={quest.toggleEquip}
             onLook={quest.setLook}
+            onLearn={() => setTab("learn")}
+            reading={reading}
           />
         </div>
       </main>
