@@ -50,7 +50,7 @@ export function QuestView(props: {
     <div className="stack">
       <section className="card">
         <div className="hero">
-          <div className="avatar"><Avatar look={s.look} equipped={s.equipped} reading={props.reading} /></div>
+          <div className="avatar"><Avatar look={s.look} equipped={s.equipped} reading={props.reading} scene /></div>
           <div className="who">
             <input className="name" aria-label="Your name" value={s.playerName} onChange={(e) => props.onRename(e.target.value, s.petName)} />
             <span className="muted small">{rankFor(s.level)}</span>
@@ -79,7 +79,7 @@ export function QuestView(props: {
 
       <section className="card">
         <div className="petrow">
-          <div className="petbox"><Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={props.petAnim} /></div>
+          <div className="petbox"><Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={props.petAnim} pattern={s.look.petPattern} /></div>
           <div className="who">
             <input className="name" aria-label="Pet name" value={s.petName} onChange={(e) => props.onRename(s.playerName, e.target.value)} />
             <span className="muted small">{speciesName(s.evo, s.petPath)}{s.evo >= 2 ? ` · ${EVO[s.evo].name}` : ""}</span>

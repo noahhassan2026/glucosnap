@@ -231,6 +231,25 @@ export function logMeal(prev: QuestState) {
   return { state, events };
 }
 
+// What the next snap would earn, for the Snap screen. Mirrors logMeal + complete, including the
+// streak that today's first completed quest starts and the daily XP cap.
+export function snapReward(s: QuestState): { xp: number; tokens: number; toBonus: number; capped: boolean } {
+  const toBonus = s.done.log3 ? 0 : Math.max(0, 3 - s.mealsToday);
+  const due = baseTasks(s).filter((t) => (t.id === "log1" || (t.id === "log3" && s.mealsToday + 1 >= 3)) && !s.done[t.id]);
+  const m = multiplier(s.activeToday ? s.streak : s.streak + 1);
+  let room = Math.max(0, DAILY_CAP - s.todayBase);
+  const capped = room === 0;
+  let xp = 0, tokens = 0;
+  for (const t of due) {
+    const base = Math.min(t.xp, room);
+    room -= base;
+    const gained = Math.round(base * m);
+    xp += gained;
+    tokens += tokensFor(gained);
+  }
+  return { xp, tokens, toBonus, capped };
+}
+
 // Move the quest to a new calendar day. Each fully missed day uses a shield or resets the streak.
 export function rollover(prev: QuestState, today: string): { state: QuestState; events: QuestEvent[] } {
   const gap = daysBetween(prev.date, today);

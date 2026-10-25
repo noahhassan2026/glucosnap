@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type { CgmPoint, Profile } from "./api/types";
 import { MAX_ADDED, allTasks, type QuestEvent, type QuestState, type Task } from "./game/quest";
 import { useQuest } from "./game/useQuest";
@@ -19,6 +19,16 @@ import { AccountPanel } from "./account/AccountPanel";
 import { leaderboard, type Player, type Session } from "./account/session";
 
 type Tab = "snap" | "history" | "health" | "quest" | "learn" | "shop";
+
+const ICON: Record<Tab, JSX.Element> = {
+  snap: <><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></>,
+  history: <><circle cx="12" cy="12" r="8" /><path d="M12 7.5V12l3 2" /></>,
+  health: <><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /><path d="M7.5 11.5h2.5l1.2-2 1.8 4 1.2-2h2.3" /></>,
+  quest: <><path d="M8 4h8v5a4 4 0 0 1-8 0z" /><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4" /></>,
+  learn: <><path d="M3 9l9-4 9 4-9 4z" /><path d="M7 11v4.5c1.5 1.5 3 2 5 2s3.5-.5 5-2V11M21 9v5" /></>,
+  shop: <><path d="M5 8h14l-1 12H6z" /><path d="M9 10V7a3 3 0 0 1 6 0v3" /></>,
+};
+const TABS: [Tab, string][] = [["snap", "Snap"], ["history", "History"], ["health", "Health"], ["quest", "Quest"], ["learn", "Learn"], ["shop", "Shop"]];
 
 function describe(events: QuestEvent[], s: QuestState) {
   const evo = events.find((e) => e.kind === "evolve");
@@ -104,7 +114,7 @@ export default function App(props: { session: Session; onSignUp: () => void; onL
             {reminders.list.some((r) => r.on) && <span className="bell-on" aria-hidden="true" />}
           </button>
           <button className="mini-quest" onClick={() => setTab("quest")} aria-label={`Level ${s.level}, ${s.streak}-day streak. Open quests`}>
-            <Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={"mini-pet " + petAnim} />
+            <Pet stage={s.evo} path={s.petPath} equipped={s.equipped} className={"mini-pet " + petAnim} pattern={s.look.petPattern} />
             <span>Lv {s.level}</span>
             <span className="mini-streak">🔥 {s.streak}</span>
             <Token n={s.tokens} />
@@ -121,17 +131,11 @@ export default function App(props: { session: Session; onSignUp: () => void; onL
         </div>
       ))}
 
-      <nav className="tabs" role="tablist" aria-label="Sections">
-        {([["snap", "Snap"], ["history", "History"], ["health", "Health"], ["quest", "Quest"], ["learn", "Learn"], ["shop", "Shop"]] as [Tab, string][]).map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{label}</button>
-        ))}
-      </nav>
-
       <main>
         <div hidden={tab !== "snap"}>
           <div className="seg subtabs" role="tablist" aria-label="Snap or meal ideas">
-            <button role="tab" aria-selected={snapPane === "snap"} onClick={() => setSnapPane("snap")}>Snap a meal</button>
-            <button role="tab" aria-selected={snapPane === "ideas"} onClick={() => setSnapPane("ideas")}>Meal ideas</button>
+            <button role="tab" aria-selected={snapPane === "snap"} onClick={() => setSnapPane("snap")}>📸 Snap a meal</button>
+            <button role="tab" aria-selected={snapPane === "ideas"} onClick={() => setSnapPane("ideas")}>💡 Meal ideas</button>
           </div>
           <div hidden={snapPane !== "snap"}>
           <SnapView
@@ -144,6 +148,7 @@ export default function App(props: { session: Session; onSignUp: () => void; onL
               quest.logMeal();
             }}
             onOpenHistory={() => setTab("history")}
+            quest={s}
             onAddSuggestion={(sg) => { quest.addSuggestion(sg); show("Added to today's quests"); }}
           />
           </div>
@@ -215,6 +220,15 @@ export default function App(props: { session: Session; onSignUp: () => void; onL
           onClose={() => setAccountOpen(false)}
         />
       )}
+      <nav className="dock" role="tablist" aria-label="Sections">
+        {TABS.map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={tab === id} aria-label={label} title={label}
+            className={"dock-btn" + (id === "snap" ? " dock-snap" : "")} onClick={() => { setTab(id); window.scrollTo({ top: 0 }); }}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{ICON[id]}</svg>
+            {id === "quest" && s.evoReady && <span className="dock-dot" aria-hidden="true" />}
+          </button>
+        ))}
+      </nav>
       {evolveOpen && s.evoReady && (
         <EvolveDialog s={s} onPick={(p) => { quest.chooseEvolution(p); setEvolveOpen(false); }} onLater={() => setEvolveOpen(false)} />
       )}
