@@ -1,7 +1,7 @@
 // Item shop: cosmetics bought with tokens. Some items also need a level, which keeps the
 // old level-up gear as goals. Nothing here affects scoring.
 
-export type Slot = "hat" | "face" | "outfit" | "back" | "shoes" | "petHat" | "petNeck" | "petAura";
+export type Slot = "hat" | "face" | "outfit" | "back" | "shoes" | "monitor" | "petHat" | "petNeck" | "petAura";
 
 export interface Item {
   id: string;
@@ -9,10 +9,11 @@ export interface Item {
   slot: Slot;
   price: number;
   minLevel?: number;
+  lesson?: string; // earned by passing this Learn lesson instead of bought
 }
 
 export const SLOT_NAMES: Record<Slot, string> = {
-  hat: "Hat", face: "Face", outfit: "Outfit", back: "Back", shoes: "Shoes",
+  hat: "Hat", face: "Face", outfit: "Outfit", back: "Back", shoes: "Shoes", monitor: "Glucose monitor",
   petHat: "Pet hat", petNeck: "Pet neck", petAura: "Pet aura",
 };
 
@@ -34,6 +35,11 @@ export const ITEMS: Item[] = [
   { id: "wings", name: "Feather wings", slot: "back", price: 160, minLevel: 12 },
   { id: "runners", name: "Running shoes", slot: "shoes", price: 25 },
   { id: "boots", name: "Hiking boots", slot: "shoes", price: 45, minLevel: 4 },
+  { id: "starter", name: "Starter sensor", slot: "monitor", price: 0, lesson: "cgm" },
+  { id: "patch", name: "Comfort overpatch", slot: "monitor", price: 25 },
+  { id: "sport", name: "Sport armband", slot: "monitor", price: 45, minLevel: 3 },
+  { id: "glow", name: "Glow sensor", slot: "monitor", price: 80, minLevel: 5 },
+  { id: "gold", name: "Gold sensor", slot: "monitor", price: 130, minLevel: 9 },
   { id: "party", name: "Party hat", slot: "petHat", price: 20 },
   { id: "flowers", name: "Flower crown", slot: "petHat", price: 45 },
   { id: "tophat", name: "Top hat", slot: "petHat", price: 70, minLevel: 5 },
@@ -51,6 +57,10 @@ export interface Look {
   hair: number; // style index
   hairColor: number;
   shirt: number;
+  monitorColor: number;
+  monitorSticker: number;
+  monitorSide: number; // 0 = left arm, 1 = right arm
+  showReading: boolean; // bubble with the latest CGM reading next to the sensor
 }
 
 export const SKINS = ["#f6d7c3", "#e9b48f", "#d39a6a", "#b0754a", "#8a5634", "#5e3a22"];
@@ -58,4 +68,7 @@ export const HAIR_COLORS = ["#1f1a17", "#5a3825", "#a0612b", "#d9a441", "#b8442f
 export const SHIRTS = ["#0f8b8d", "#3a6fd6", "#c2477a", "#e0a020", "#5f9c3a", "#55606a"];
 export const HAIR_STYLES = ["Short", "Long", "Curly", "Buzz", "Bun"];
 
-export const DEFAULT_LOOK: Look = { skin: 1, hair: 0, hairColor: 0, shirt: 0 };
+export const MONITOR_COLORS = ["#eef2f4", "#2a3640", "#0f8b8d", "#c2477a", "#3a6fd6", "#e0a020", "#7b5fc4"];
+export const STICKERS = ["None", "Heart", "Star", "Bolt", "Smile", "Paw"];
+
+export const DEFAULT_LOOK: Look = { skin: 1, hair: 0, hairColor: 0, shirt: 0, monitorColor: 0, monitorSticker: 0, monitorSide: 1, showReading: true };

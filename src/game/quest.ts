@@ -60,6 +60,8 @@ export interface QuestState {
   look: Look;
   petPath: PetPath;
   evoReady: boolean; // qualifies for the next stage but needs the player's choice
+  lessons: Record<string, number>; // best quiz score per Learn lesson
+  riskCheck: { score: number; date: string } | null;
 }
 
 export type QuestEvent =
@@ -90,6 +92,7 @@ export function fresh(date: string, playerName = "You"): QuestState {
     level: 1, xp: 0, streak: 0, best: 0, shields: 0, evo: 0,
     todayBase: 0, activeToday: false, mealsToday: 0, done: {}, extraTasks: [], lastWeekly: null,
     tokens: START_TOKENS, owned: [], equipped: {}, look: { ...DEFAULT_LOOK }, petPath: {}, evoReady: false,
+    lessons: {}, riskCheck: null,
   };
 }
 
@@ -97,6 +100,7 @@ export function fresh(date: string, playerName = "You"): QuestState {
 export function migrate(saved: QuestState): QuestState {
   const s = { ...fresh(saved.date), ...saved };
   s.petPath = { ...saved.petPath };
+  s.look = { ...DEFAULT_LOOK, ...saved.look };
   if (s.evo >= 2 && !s.petPath.element) s.petPath.element = "leaf";
   if (s.evo >= 3 && !s.petPath.form) s.petPath.form = "wing";
   return s;
@@ -152,6 +156,7 @@ export function buy(prev: QuestState, id: string): ShopResult {
   const item = itemById(id);
   if (!item) return { state: prev, error: "That item isn't in the shop." };
   if (prev.owned.includes(id)) return { state: prev, error: "You already own it." };
+  if (item.lesson) return { state: prev, error: "Pass the lesson in Learn to unlock it." };
   if (item.minLevel && prev.level < item.minLevel) return { state: prev, error: `Unlocks at level ${item.minLevel}.` };
   if (prev.tokens < item.price) return { state: prev, error: `You need ${item.price - prev.tokens} more tokens.` };
   return {

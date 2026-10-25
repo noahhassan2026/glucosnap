@@ -23,6 +23,7 @@ export function QuestView(props: {
   onRename: (player: string, pet: string) => void;
   onShop: () => void;
   onEvolve: () => void;
+  reading?: number;
 }) {
   const { s } = props;
   const [tab, setTab] = useState<"level" | "streak">("level");
@@ -36,7 +37,7 @@ export function QuestView(props: {
     <div className="stack">
       <section className="card">
         <div className="hero">
-          <div className="avatar"><Avatar look={s.look} equipped={s.equipped} /></div>
+          <div className="avatar"><Avatar look={s.look} equipped={s.equipped} reading={props.reading} /></div>
           <div className="who">
             <input className="name" aria-label="Your name" value={s.playerName} onChange={(e) => props.onRename(e.target.value, s.petName)} />
             <span className="muted small">{rankFor(s.level)}</span>
