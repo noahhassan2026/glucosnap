@@ -14,11 +14,11 @@ function today(offset: number) {
   return isoDate(new Date(Date.now() + offset * 864e5));
 }
 
-export function useQuest(onEvents: (e: QuestEvent[], s: QuestState) => void) {
+export function useQuest(onEvents: (e: QuestEvent[], s: QuestState) => void, defaultName?: string) {
   const [offset, setOffset] = useState(() => load(OFFSET_KEY, { days: 0 }).days);
   const [state, setState] = useState<QuestState>(() => {
     const d = today(offset);
-    const saved = migrate(load<QuestState>(KEY, fresh(d)));
+    const saved = migrate(load<QuestState>(KEY, fresh(d, defaultName)));
     return rollover(saved, d).state;
   });
   const notify = useRef(onEvents);

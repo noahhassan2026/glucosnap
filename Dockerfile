@@ -18,10 +18,11 @@ RUN pip install --no-cache-dir -r api/requirements.txt
 COPY api api
 COPY deploy deploy
 COPY --from=web /src/dist dist
-# Run as an unprivileged user; the app only reads its files.
+# Run as an unprivileged user; the app only reads its files. Accounts go to Azure Blob Storage when
+# AZURE_STORAGE_CONNECTION_STRING is set, otherwise to DATA_DIR (lost when the container is replaced).
 RUN useradd -m -u 1000 user
 USER user
-ENV HOME=/home/user
+ENV HOME=/home/user DATA_DIR=/home/user/data
 # Hosts such as Render set PORT; 7860 is the local default.
 ENV PORT=7860
 EXPOSE 7860

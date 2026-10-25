@@ -4,8 +4,12 @@ import { choiceFor, speciesName, type PetPath } from "../game/pets";
 import { Token } from "./ShopView";
 import { Avatar } from "./Avatar";
 import { Pet } from "./Pet";
+import type { Player } from "../account/session";
 
-// Example players. The leaderboard deliberately carries no health data.
+type Row = { n: string; lvl: number; streak: number; evo: number; path: PetPath; me: boolean; example?: boolean };
+
+// Example players fill the board until enough real players have joined. No health data, ever.
+const MIN_ROWS = 4;
 const OTHERS: { n: string; lvl: number; streak: number; evo: number; path: PetPath }[] = [
   { n: "Maya", lvl: 9, streak: 12, evo: 3, path: { element: "ember", form: "wing" } },
   { n: "Jordan", lvl: 7, streak: 21, evo: 2, path: { element: "tide" } },
@@ -25,13 +29,21 @@ export function QuestView(props: {
   onEvolve: () => void;
   children?: ReactNode; // shown under today's quests (the AI coach)
   reading?: number;
+  players: Player[] | null; // real players from the server; null when it can't be reached
+  guest: boolean;
+  onSignUp: () => void;
 }) {
   const { s } = props;
   const [tab, setTab] = useState<"level" | "streak">("level");
   const m = multiplier(s.streak);
   const cur = TIERS.filter((t) => s.streak >= t.days).at(-1)!;
-  const rows = OTHERS.map((o) => ({ ...o, me: false }))
-    .concat({ n: s.playerName || "You", lvl: s.level, streak: s.streak, evo: s.evo, path: s.petPath, me: true })
+  // My row always shows live local state, which may be a moment ahead of the last save.
+  const mine: Row = { n: (s.playerName || "You") + (props.guest ? " (guest)" : ""), lvl: s.level, streak: s.streak, evo: s.evo, path: s.petPath, me: true };
+  const real: Row[] = (props.players ?? []).filter((p) => !p.me)
+    .map((p) => ({ n: p.name, lvl: p.level, streak: p.streak, evo: p.evo, path: p.path as PetPath, me: false }));
+  const examples: Row[] = OTHERS.map((o) => ({ ...o, me: false, example: true }))
+    .slice(0, props.players ? Math.max(0, MIN_ROWS - real.length - 1) : OTHERS.length);
+  const rows = [...real, ...examples, mine]
     .sort(tab === "level" ? (a, b) => b.lvl - a.lvl || b.streak - a.streak : (a, b) => b.streak - a.streak || b.lvl - a.lvl);
 
   return (
@@ -129,13 +141,14 @@ export function QuestView(props: {
           <thead><tr><th>#</th><th>Player</th><th className="num">Level</th><th className="num">Streak</th><th>Pet</th></tr></thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.n + r.me} className={r.me ? "me" : ""}>
-                <td className="pos">{i + 1}</td><td>{r.n}</td><td className="num">{r.lvl}</td><td className="num">{r.streak}d</td><td>{speciesName(r.evo, r.path)}</td>
+              <tr key={r.n + r.me + i} className={r.me ? "me" : ""}>
+                <td className="pos">{i + 1}</td><td>{r.n}{r.example && <span className="tag">example</span>}</td><td className="num">{r.lvl}</td><td className="num">{r.streak}d</td><td>{speciesName(r.evo, r.path)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="note">Example players. The leaderboard shows only levels, streaks and pets, never glucose, food or weight data.</p>
+        {props.guest && <p className="small">Guests aren't on the real leaderboard. <button className="ghost small-btn" onClick={props.onSignUp}>Create an account</button></p>}
+        <p className="note">{props.players ? "Real GlucoSnap players" + (examples.length ? ", plus example players until more people join" : "") : "Example players (the server is offline)"}. The leaderboard shows only names, levels, streaks and pets, never glucose, food or weight data.</p>
       </section>
 
       <section className="row" aria-label="Demo controls">

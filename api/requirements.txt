@@ -9,3 +9,4 @@ lightgbm==4.7.0
 onnxruntime>=1.18     # runs models/encoder.onnx; PyTorch is only needed to train (requirements-train.txt)
 anthropic>=2.3
 openai>=1.40
+azure-storage-blob>=12.20   # user accounts in Azure Blob Storage when AZURE_STORAGE_CONNECTION_STRING is set

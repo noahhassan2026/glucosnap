@@ -11,6 +11,10 @@ It uses about 300 MB of memory, so it fits free tiers with 512 MB.
 | `NAVIGATOR_TOOLKIT_API_KEY` | for photo scanning | UF NaviGator key; uses `gemma-4-31b-it` |
 | `NAVIGATOR_BASE_URL` | no | defaults to `https://api.ai.it.ufl.edu/v1` |
 | `ANTHROPIC_API_KEY` | no | fallback vision provider when no NaviGator key is set |
+| `AZURE_STORAGE_CONNECTION_STRING` | for accounts that last | saves accounts in Azure Blob Storage; without it they go to the container's disk and vanish on redeploy |
+| `AZURE_STORAGE_CONTAINER` | no | blob container name; defaults to `glucosnap` |
+| `SESSION_SECRET` | no | signs login tokens; by default one is made on first start and kept in storage |
+| `DATA_DIR` | no | folder for accounts when no storage connection is set |
 | `PORT` | no | set by most hosts; defaults to 7860 |
 
 Without a vision key the app still works: photo scans return 503 and the app asks for macros.
@@ -44,6 +48,25 @@ az containerapp secret set -n glucosnap -g glucosnap-rg --secrets navigator-key=
 az containerapp update -n glucosnap -g glucosnap-rg --set-env-vars NAVIGATOR_TOOLKIT_API_KEY=secretref:navigator-key
 ```
 
+### Accounts storage (do this once)
+
+User accounts and progress are saved in an Azure Storage account, because the container's own disk is wiped on
+every redeploy. A few MB of blobs costs well under a cent a month, taken from the student credit. Run in Cloud
+Shell; the name must be new across all of Azure, so it gets a random number:
+
+```bash
+az provider register -n Microsoft.Storage --wait
+SA=glucosnap$RANDOM; echo "storage account: $SA"
+az storage account create -n $SA -g glucosnap-rg -l northcentralus --sku Standard_LRS --kind StorageV2 \
+  --min-tls-version TLS1_2 --allow-blob-public-access false
+CONN=$(az storage account show-connection-string -n $SA -g glucosnap-rg -o tsv)
+az containerapp secret set -n glucosnap -g glucosnap-rg --secrets storage-conn="$CONN"
+az containerapp update -n glucosnap -g glucosnap-rg --set-env-vars AZURE_STORAGE_CONNECTION_STRING=secretref:storage-conn
+```
+
+Then `https://<app>/api/health` shows `"accounts_storage": "BlobStore"`. Keep `--max-replicas 1`: the server keeps
+the account list in memory, so two copies of it would not see each other's sign-ups.
+
 To ship a new version after the Container workflow finishes on `main`, point the app at that
 commit's image (a new tag makes Azure pull it):
 `az containerapp update -n glucosnap -g glucosnap-rg --image ghcr.io/noahhassan2026/glucosnap:<commit sha>`
@@ -68,7 +91,7 @@ Open the link a few minutes before a demo.
 ```bash
 npm ci && npm run build
 pip install -r api/requirements.txt
-echo "NAVIGATOR_TOOLKIT_API_KEY=your-key" > api/.env   # git-ignored
+echo "NAVIGATOR_TOOLKIT_API_KEY=your-key" > api/.env   # git-ignored; accounts save to api/data/
 uvicorn deploy.serve:app --port 8000 --env-file api/.env
 ```
 
