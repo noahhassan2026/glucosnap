@@ -96,7 +96,7 @@ export function RiskCheck(props: {
               </ul>
             </div>
           )}
-          {result.tokens > 0 && <p className="reward">+<Token n={result.tokens} /> tokens for checking in on your health</p>}
+          {result.tokens > 0 && <p className="reward">You earned +<Token n={result.tokens} /> tokens for checking in on your health</p>}
           <div className="spread">
             <button className="ghost" onClick={() => setResult(null)}>Change answers</button>
             <button onClick={props.onLesson}>Lesson: who is at risk?</button>
@@ -157,7 +157,7 @@ export function RiskCheck(props: {
           {units !== "bmi" && bmiOk && <p className="note">BMI {bmi.toFixed(1)}</p>}
         </div>
         <button disabled={!ready} onClick={submit}>See my score</button>
-        {props.firstTime && <p className="note">You'll earn tokens the first time you finish, whatever your score.</p>}
+        {props.firstTime && <p className="note">Free to take. You earn tokens the first time you finish, whatever your score.</p>}
         {props.last && <p className="note">Last time you scored {props.last.score} out of {RISK_MAX} ({props.last.date}).</p>}
       </section>
     </div>

@@ -6,6 +6,16 @@ import type { Profile } from "../api/types";
 import { Token } from "./ShopView";
 import { RiskCheck } from "./RiskCheck";
 
+// Tokens a lesson can still pay out. Quizzes never cost anything.
+function earnable(s: QuestState, l: Lesson) {
+  const best = s.lessons[l.id] ?? -1;
+  return (best >= passMark(l.quiz.length) ? 0 : LESSON_TOKENS) + (best < l.quiz.length ? PERFECT_BONUS : 0);
+}
+
+export function Earn({ n, label = "Earn" }: { n: number; label?: string }) {
+  return <span className="earn" aria-label={`${label} ${n} tokens`}>{label} +<Token n={n} /></span>;
+}
+
 export function LearnView(props: {
   s: QuestState;
   profile: Profile;
@@ -29,10 +39,11 @@ export function LearnView(props: {
           <h2>Learning center</h2>
           <span className="badge">{done} / {LESSONS.length} lessons</span>
         </div>
-        <p className="muted small">Short lessons in plain language. Pass a 3-question quiz to earn tokens for the shop.</p>
+        <p className="muted small">Short lessons in plain language. Pass the quiz at the end to earn tokens for the shop.</p>
+        <p className="free-banner"><b>Every quiz is free.</b> You only earn tokens here, you never spend them.</p>
         <div className="bar" aria-hidden="true"><i style={{ width: `${(done / LESSONS.length) * 100}%` }} /></div>
         <p className="note">
-          {LESSON_TOKENS} tokens per lesson, {PERFECT_BONUS} more for a perfect score, and {ALL_DONE_BONUS} for finishing them all. Retakes are always free practice.
+          Earn {LESSON_TOKENS} tokens for passing a lesson, {PERFECT_BONUS} more for a perfect score, and {ALL_DONE_BONUS} for finishing them all. Retake any quiz for free as often as you like.
         </p>
       </section>
 
@@ -49,7 +60,7 @@ export function LearnView(props: {
         )}
         <div className="spread">
           <button onClick={() => setRisk(true)}>{s.riskCheck ? "Take it again" : "Check my risk"}</button>
-          {!s.riskCheck && <span className="small muted">+<Token n={RISK_TOKENS} /> the first time</span>}
+          {!s.riskCheck && <Earn n={RISK_TOKENS} />}
         </div>
         <p className="note">A screening tool, not a diagnosis. Only a blood test can tell you if you have prediabetes or diabetes.</p>
       </section>
@@ -71,8 +82,8 @@ export function LearnView(props: {
                     {prize && !s.owned.includes(prize.id) && <small className="unlock">Unlocks: {prize.name} for your character</small>}
                   </span>
                   <span className="lesson-state">
-                    {passed ? <><span className="check-mark" aria-label="Passed">✓</span><small>{best}/{l.quiz.length}</small></>
-                      : <Token n={LESSON_TOKENS + PERFECT_BONUS} />}
+                    {passed && <span className="passed"><span className="check-mark" aria-label="Passed">✓</span><small>{best}/{l.quiz.length}</small></span>}
+                    {earnable(s, l) > 0 ? <Earn n={earnable(s, l)} label={passed ? "Perfect" : "Earn"} /> : <small>Free review</small>}
                   </span>
                 </button>
               </li>
@@ -125,12 +136,15 @@ function LessonPlayer({ lesson, s, onFinish, onClose, onShop }: {
 
       {step < nCards && (
         <section className="card lesson-card" aria-live="polite">
-          <span className="small muted">{lesson.emoji} {lesson.title} · {step + 1} of {nCards}</span>
+          <div className="spread">
+            <span className="small muted">{lesson.emoji} {lesson.title} · {step + 1} of {nCards}</span>
+            {earnable(s, lesson) > 0 && <Earn n={earnable(s, lesson)} />}
+          </div>
           <h2>{lesson.cards[step].title}</h2>
           <p className="lesson-body">{lesson.cards[step].body}</p>
           <div className="spread">
             <button className="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}>Back</button>
-            <button onClick={() => setStep(step + 1)}>{step === nCards - 1 ? "Start quiz" : "Next"}</button>
+            <button onClick={() => setStep(step + 1)}>{step === nCards - 1 ? "Start free quiz" : "Next"}</button>
           </div>
         </section>
       )}
@@ -139,7 +153,10 @@ function LessonPlayer({ lesson, s, onFinish, onClose, onShop }: {
         const q = lesson.quiz[qi];
         return (
           <section className="card lesson-card">
-            <span className="small muted">Quiz · question {qi + 1} of {nQ}</span>
+            <div className="spread">
+              <span className="small muted">Free quiz · question {qi + 1} of {nQ}</span>
+              {earnable(s, lesson) > 0 && <Earn n={earnable(s, lesson)} />}
+            </div>
             <h2>{q.q}</h2>
             <div className="options" role="radiogroup" aria-label="Answers">
               {q.options.map((o, i) => {
@@ -167,11 +184,11 @@ function LessonPlayer({ lesson, s, onFinish, onClose, onShop }: {
           <span className="result-emoji" aria-hidden="true">{result.passed ? "🎉" : "📚"}</span>
           <h2>{correct} of {nQ} correct</h2>
           {result.passed ? (
-            <p className="small">{result.tokens > 0 ? "Lesson complete!" : "Nice review. You already earned this lesson's tokens."}</p>
+            <p className="small">{result.tokens > 0 ? "Lesson complete!" : "Nice review! You already earned this lesson's tokens, and reviewing is always free."}</p>
           ) : (
-            <p className="small">You need {passMark(nQ)} to pass. Skim the cards again and give it another go.</p>
+            <p className="small">You need {passMark(nQ)} to pass. Skim the cards and try again. Quizzes are free, so you lose nothing.</p>
           )}
-          {result.tokens > 0 && <p className="reward">+<Token n={result.tokens} /> tokens{result.allDone ? ` (including ${ALL_DONE_BONUS} for finishing every lesson)` : ""}</p>}
+          {result.tokens > 0 && <p className="reward">You earned +<Token n={result.tokens} /> tokens{result.allDone ? ` (including ${ALL_DONE_BONUS} for finishing every lesson)` : ""}</p>}
           {result.unlocked && (
             <div className="ready">
               <span>You unlocked the <b>{itemById(result.unlocked)?.name}</b>. Your character is wearing it now.</span>
@@ -179,10 +196,10 @@ function LessonPlayer({ lesson, s, onFinish, onClose, onShop }: {
             </div>
           )}
           <div className="spread">
-            <button className="ghost" onClick={restart}>{result.passed ? "Review again" : "Try again"}</button>
+            <button className="ghost" onClick={restart}>{result.passed ? "Review again (free)" : "Try again (free)"}</button>
             <button onClick={onClose}>Back to lessons</button>
           </div>
-          <span className="note">{s.tokens} tokens in your wallet</span>
+          <span className="note">Wallet: {s.tokens} tokens. Spend them in the Shop.</span>
         </section>
       )}
     </div>
